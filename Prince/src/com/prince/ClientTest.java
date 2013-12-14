@@ -71,4 +71,54 @@ public class ClientTest {
 		System.out.println("Chiusura connessione effettuata");
 		System.exit(0);
 	}
+	
+	private class KeyboardListenerThread extends Thread {
+
+		public KeyboardListenerThread() {
+			super();
+		}
+		
+		@Override
+		public void run() {
+			String msg = "";
+			BufferedReader fromKeyboard = new BufferedReader(new InputStreamReader(System.in));
+			try {
+				msg = fromKeyboard.readLine();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			
+			String msgToSend = "";
+			
+			if (msg.substring(0, 1).equalsIgnoreCase("J")) {	// join the network
+				msgToSend = "J";
+			} else if (msg.substring(0, 1).equalsIgnoreCase("E")) {	// exit the network
+				msgToSend = "E@0";
+			} else if (msg.substring(0, 1).equalsIgnoreCase("L")) {	// listen
+				
+			} else if (msg.substring(0, 1).equalsIgnoreCase("bye")) {	// shutdown
+				msgToSend = "bye";
+//			} elseif (msg.substring(0, 1).equalsIgnoreCase("J")) {
+
+			} else { 
+				
+			}
+			
+			while (!msgToSend.equalsIgnoreCase("bye")) {
+				try {
+					PrintStream toServer = new PrintStream(socket.getOutputStream());
+					toServer.println(msgToSend);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+			try {
+				socket.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			System.out.println("Chiusura connessione effettuata");
+			System.exit(0);
+		}
+	}
 }

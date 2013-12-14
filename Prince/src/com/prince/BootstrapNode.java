@@ -9,8 +9,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.logging.Handler;
-import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
 /* Database:
@@ -35,6 +36,8 @@ public class BootstrapNode {
 	private static final int PORT_TESTING = 7777;
 
 	private static final String LOGGER_NAME = "Bootstrap";
+	private static final long DELAY_ASK_FOR_ALIVE = 1000;
+	private static final long PERIOD_ASK_FOR_ALIVE = 1000;
 
 	private static int counter = 0;
 	private static int node_id = 0;
@@ -60,6 +63,10 @@ public class BootstrapNode {
 		}
 		System.out.println("Server di test creato con successo!");
 
+		Timer timer = new Timer();
+		TimerTask task = new AliveAskerTask();
+		timer.schedule(task, DELAY_ASK_FOR_ALIVE, PERIOD_ASK_FOR_ALIVE);
+		
 		//		Faccio partire tutti i thread incaricati di ascoltare
 		JoinedNodeListenerThread joinedNodeListenerThread = new JoinedNodeListenerThread();
 		joinedNodeListenerThread.start();
@@ -139,6 +146,15 @@ public class BootstrapNode {
 		}
 	}	// ClientThread
 
+	private class AliveAskerTask extends TimerTask {
+
+		@Override
+		public void run() {
+			AliveAskerThread aliveAskerThread = new AliveAskerThread();
+			aliveAskerThread.start();
+		}
+	}
+	
 	/*
 	 * 	Threads
 	 */
@@ -147,8 +163,7 @@ public class BootstrapNode {
 
 		@Override
 		public void run() {
-			// TODO Auto-generated method stub
-			super.run();
+			System.out.println("time!");
 		}
 	}
 
