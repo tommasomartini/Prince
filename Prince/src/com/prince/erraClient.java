@@ -393,8 +393,9 @@ public class erraClient
 		
 //		openFile();
 		
+
 		//TOOOOOOOM
-		
+
 		
 		System.out.println("Connessione in corso al nodo BOOTSTRAP...");
 		boolean esito=initializeErra();		
