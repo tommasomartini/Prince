@@ -39,6 +39,11 @@ public class erraClient
 	public static String ERRA_ADDRESS="";
 
 	public static int TOTAL_DEVICES=0;
+	
+	
+	//Lunghezza dell'ERRA packet espressa in bytes
+	
+	public static int MSS=51;
 
 	public static class erraHost
 	{	public String IP;						//So che viola il principio di incapsulamento...ma chi se ne frega, meglio così senza fare 1000 metodi.
@@ -280,6 +285,9 @@ public class erraClient
 				String erraPacket="";
 				erraPacket=streamFromServer.readLine();
 				mySocket.close();
+				
+				
+
 				System.out.println("Ho letto il pacchetto erra e chiuso la connessione con il mittente");
 				System.out.println(erraPacket);	
 				
@@ -351,30 +359,42 @@ public class erraClient
 		System.out.println("=======================================");
 	}
 	
-	private static final String INPUT_FILE_NAME = "/home/mattia/Desktopserver.class";
+	private static final String INPUT_FILE_NAME = "/home/mattia/Desktop/prova.jpg";
 	
 	public static void openFile()
 	{
 		  	System.out.println("Reading in binary file named : " + INPUT_FILE_NAME);
 		    File file = new File(INPUT_FILE_NAME);
-		   
-		    byte[] result = new byte[(int)file.length()];
-		    try {
-		      InputStream input = null;
-		      try {
-		        int totalBytesRead = 0;
-		        input = new BufferedInputStream(new FileInputStream(file));
-		        while(totalBytesRead < result.length){
-		          int bytesRemaining = result.length - totalBytesRead;
-		          //input.read() returns -1, 0, or more :
-		          int bytesRead = input.read(result, totalBytesRead, bytesRemaining); 
-		          if (bytesRead > 0){
-		            totalBytesRead = totalBytesRead + bytesRead;
-		          }
-		        }
+		    System.out.println("File length (bytes): "+(int)file.length());
+		    int packets=(int)file.length()/MSS;
+		    System.out.println("Il file acquisito verra frammentato in "+packets+ " pacchetti.");
+
+		    try 
+		    {	int totalBytesRead=0;
+		      	InputStream input = null;
+		      	try 
+		      	{
+		      		input = new BufferedInputStream(new FileInputStream(file));
+		      		
+		      		for (int i=0;i<packets;i++)
+		      		{	byte[] result = new byte[MSS];
+		      			totalBytesRead+=input.read(result,0, MSS);
+		      			System.out.println("Ciao");
+
+		      			//Ora all'interno di result ho MSS bytes di dati relativi al file che voglio inviare al destinatario;
+		      			//OutputStream socketOutputStream = socket.getOutputStream();
+		      			//socketOutputStream.write(message);
+
+		      		}
+		        //Ora leggo l'ultimo pacchetto che in generale ha una dimensione minore degli altri
+		        
+		        byte[] result = new byte[(int)file.length()-totalBytesRead];
+	        	totalBytesRead+=input.read(result,0, (int)file.length()-totalBytesRead);
+
 		      }
-		      finally {
-		    	  System.out.println("Closing input stream.");
+		      finally 
+		      {	
+		    	System.out.println("Closing input stream.");
 		        input.close();
 		      }
 		    }
@@ -386,18 +406,12 @@ public class erraClient
 		    }
 	}
 
-	
 	public static void main(String[] args) throws InterruptedException
 	{	
 		
+		openFile();
 		
-//		openFile();
-		
-
-		//TOOOOOOOM
-
-		
-		System.out.println("Connessione in corso al nodo BOOTSTRAP...");
+	/*	System.out.println("Connessione in corso al nodo BOOTSTRAP...");
 		boolean esito=initializeErra();		
 		if (!esito)
 		{
@@ -411,7 +425,7 @@ public class erraClient
 		refreshTopology refresh=new refreshTopology();
 		refresh.start();
 		
-		listenToForward F=new listenToForward();
+		listen		ToForward F=new listenToForward();
 		F.start();
 
 		while(true)
@@ -437,7 +451,7 @@ public class erraClient
 				catch (IOException e){e.printStackTrace();}
 			}
 
-		}
+		}*/
 
 	} 
 
