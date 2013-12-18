@@ -66,9 +66,13 @@ public class BootstrapNode {
 	JoinedNodeListenerThread joinedNodeListenerThread;
 	DepartedNodeListenerThread departedNodeListenerThread;
 	AliveNodeListenerThread aliveNodeListenerThread;
+	
+	//	Speaking threads
+	AliveAskerThread aliveAskerThread;
 
 	private Map<Integer, Node> nodes;
 	private Map<Integer, Integer> rollCallRegister;	// "registro per fare l'appello"
+	//FIXME meglio gestirlo con un array? piu' veloce?
 
 	private BootstrapNode() {
 		nodes = new HashMap<Integer, BootstrapNode.Node>();
@@ -96,6 +100,8 @@ public class BootstrapNode {
 
 		aliveNodeListenerThread = new AliveNodeListenerThread();
 		aliveNodeListenerThread.start();
+		
+		aliveAskerThread = new AliveAskerThread();
 	}	// BootstrapNode()
 
 	public static void main(String[] args) {
@@ -176,20 +182,7 @@ public class BootstrapNode {
 			for (Map.Entry<Integer, Integer> entry : rollCallRegister.entrySet()) {
 				entry.setValue(SUBJECT_STATE_MISSING);
 			}
-			AliveAskerThread aliveAskerThread = new AliveAskerThread();
 			aliveAskerThread.start();
-			//			try {
-			//				notifiedAliveNodeListener = new ServerSocket(PORT_ALIVE_NODE);
-			//				while (true) {
-			//					
-			//				}
-			//				Socket newSocket = notifiedAliveNodeListener.accept();
-			//			} catch (IOException e) {
-			//				e.printStackTrace();
-			//			} 
-			//			
-			//			NotifiedAliveNodeThread notifiedAliveNodeThread = new NotifiedAliveNodeThread();
-			//			notifiedAliveNodeThread.start();
 		}
 	}
 
@@ -297,6 +290,7 @@ public class BootstrapNode {
 		@Override
 		public void run() {
 			super.run();
+			currentState = STATE_ROLL_CALLING;
 			try {
 				DatagramSocket datagramSocket = new DatagramSocket(PORT_ASK_ALIVE_NODES);
 				DatagramPacket datagramPacket;
@@ -307,6 +301,7 @@ public class BootstrapNode {
 					datagramSocket.send(datagramPacket);
 				}
 				datagramSocket.close();
+//				TODO faccio partire un timer che conta il time-out per chiedere di nuovo quali sudditi sono vivi, nel caso qualcuno non abbia risposto
 			} catch (SocketException e) {
 				e.printStackTrace();
 			} catch (UnknownHostException e) {
