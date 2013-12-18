@@ -16,6 +16,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -42,9 +43,9 @@ public class BootstrapNode {
 	//	Testing ports
 	private static final int PORT_TESTING = 7777;
 
-	private static final long DELAY_ASK_FOR_ALIVE = 1000;
-	private static final long PERIOD_ASK_FOR_ALIVE = 1000;
-	private static final long PERIOD_ASK_FOR_ALIVE_AGAIN = 1000;
+	private static final long DELAY_ASK_FOR_ALIVE = 0;
+	private static final long PERIOD_ASK_FOR_ALIVE = 3000;
+	private static final long PERIOD_ASK_FOR_ALIVE_AGAIN = 500;
 	private static final int TIMES_TO_ASK_AGAIN = 3;
 
 	//	States
@@ -81,54 +82,63 @@ public class BootstrapNode {
 
 	private BootstrapNode() {
 		nodes = new HashMap<Integer, BootstrapNode.ErraNode>();
+		
+		/*
+		 * per il testing
+		 */
+		populateForTesting();
+		////////
+		
 		rollCallRegister = new HashMap<Integer, Integer>();
+		for (Map.Entry<Integer, Integer> entry : rollCallRegister.entrySet()) {
+			entry.setValue(SUBJECT_STATE_MISSING);
+		}
 
 		currentState = STATE_RUNNING;
 
-		try {
-			serverSocket = new ServerSocket(PORT_TESTING);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		System.out.println("Server di test creato con successo!");
+//		try {
+//			serverSocket = new ServerSocket(PORT_TESTING);
+//		} catch (IOException e) {
+//			e.printStackTrace();
+//		}
+//		System.out.println("Server di test creato con successo!");
 
-		Timer timer = new Timer();
-		TimerTask task = new AliveAskerTask();
-		timer.schedule(task, DELAY_ASK_FOR_ALIVE, PERIOD_ASK_FOR_ALIVE);
-
-		//		Start listening threads
 		joinedNodeListenerThread = new JoinedNodeListenerThread();
-		joinedNodeListenerThread.start();
-
 		departedNodeListenerThread = new DepartedNodeListenerThread();
-		departedNodeListenerThread.start();
-
 		aliveNodeListenerThread = new AliveNodeListenerThread();
-		aliveNodeListenerThread.start();
-
 		aliveAskerThread = new AliveAskerThread();
 	}	// BootstrapNode()
 
 	public static void main(String[] args) {
-		BootstrapNode btNode = new BootstrapNode();
-		btNode.runBootstrap();
+		BootstrapNode bootstrapNode = new BootstrapNode();
+		bootstrapNode.runBootstrap();
 	}	// main()
 
 	private void runBootstrap() {
-
-		while (true) {			
-			try {
-				System.out.println("Server in attesa di richieste…");
-				Socket newSocket = serverSocket.accept();
-				//				logger.log(Level.INFO, "risposta a ServerSocket");
-				ClientThread clientThread = new ClientThread(newSocket, counter++);
-				clientThread.start();
-			}
-			catch(IOException e) {
-				System.out.println("Conversazione interrotta");
-			}
-		}
-	}	// runBootstrap()
+		joinedNodeListenerThread.start();
+		departedNodeListenerThread.start();
+		aliveNodeListenerThread.start();
+		aliveAskerThread.start();
+//		Timer timer = new Timer();
+//		TimerTask task = new AliveAskerTask();
+//		timer.schedule(task, DELAY_ASK_FOR_ALIVE, PERIOD_ASK_FOR_ALIVE);
+	}
+	
+//	private void runBootstrap() {
+//
+//		while (true) {			
+//			try {
+//				System.out.println("Server in attesa di richieste…");
+//				Socket newSocket = serverSocket.accept();
+//				//				logger.log(Level.INFO, "risposta a ServerSocket");
+//				ClientThread clientThread = new ClientThread(newSocket, counter++);
+//				clientThread.start();
+//			}
+//			catch(IOException e) {
+//				System.out.println("Conversazione interrotta");
+//			}
+//		}
+//	}	// runBootstrap()
 
 	//	W@erraid@numeronodiattivinellarete@ip#erraid%ip#erraid%ip#erraid%...%
 	private String getNodesMapToString() {
@@ -140,45 +150,45 @@ public class BootstrapNode {
 		return mapToString;
 	}
 
-	private class ClientThread extends Thread {
-
-		private Socket socket;
-		private int id;
-
-		public ClientThread(Socket newSocket, int myId) {
-			super();
-			socket = newSocket;
-			id = myId;
-		}
-
-		@Override
-		public void run() {
-			System.out.println("---Iniziato thread con ID: " + id);
-			readFromClient();
-		}
-
-		private void readFromClient() {
-
-			try {
-				PrintStream toClient = new PrintStream(socket.getOutputStream());	// scrivo al client
-				toClient.println("Il client e' connesso al server con id " + id);
-				String rcvMsg = "";
-				String usrMsg = "";
-				BufferedReader fromClient = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-
-				while (!rcvMsg.equalsIgnoreCase("bye") && !usrMsg.equalsIgnoreCase("quit")) {
-					rcvMsg = fromClient.readLine();
-					System.out.println("Il client " + id + " scrive: " + rcvMsg);		
-				}
-
-				socket.close();
-				System.out.println("---Disconnesso dal client numero " + id);
-
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-	}	// ClientThread
+//	private class ClientThread extends Thread {
+//
+//		private Socket socket;
+//		private int id;
+//
+//		public ClientThread(Socket newSocket, int myId) {
+//			super();
+//			socket = newSocket;
+//			id = myId;
+//		}
+//
+//		@Override
+//		public void run() {
+//			System.out.println("---Iniziato thread con ID: " + id);
+//			readFromClient();
+//		}
+//
+//		private void readFromClient() {
+//
+//			try {
+//				PrintStream toClient = new PrintStream(socket.getOutputStream());	// scrivo al client
+//				toClient.println("Il client e' connesso al server con id " + id);
+//				String rcvMsg = "";
+//				String usrMsg = "";
+//				BufferedReader fromClient = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+//
+//				while (!rcvMsg.equalsIgnoreCase("bye") && !usrMsg.equalsIgnoreCase("quit")) {
+//					rcvMsg = fromClient.readLine();
+//					System.out.println("Il client " + id + " scrive: " + rcvMsg);		
+//				}
+//
+//				socket.close();
+//				System.out.println("---Disconnesso dal client numero " + id);
+//
+//			} catch (IOException e) {
+//				e.printStackTrace();
+//			}
+//		}
+//	}	// ClientThread
 
 	private class AliveAskerTask extends TimerTask {
 
@@ -187,6 +197,7 @@ public class BootstrapNode {
 			for (Map.Entry<Integer, Integer> entry : rollCallRegister.entrySet()) {
 				entry.setValue(SUBJECT_STATE_MISSING);
 			}
+//			(new AliveAskerThread()).start();
 			aliveAskerThread.start();
 		}
 	}
@@ -291,10 +302,13 @@ public class BootstrapNode {
 	 */
 
 	private class AliveAskerThread extends Thread {
+		
+		private int threadId = (new Random()).nextInt(1000);
 
 		@Override
 		public void run() {
 			super.run();
+			System.out.println("%%% Nuovo AliveAskerThread! " + threadId);
 			currentState = STATE_ROLL_CALLING;
 			try {
 				DatagramSocket datagramSocket = new DatagramSocket(PORT_ASK_ALIVE_NODES);
@@ -309,8 +323,8 @@ public class BootstrapNode {
 				int rollCallingCounter = TIMES_TO_ASK_AGAIN;
 				boolean stillMissingNodes = true;
 				List<Integer> missingNodes = new LinkedList<Integer>();
-				while (rollCallingCounter > 0 && !missingNodes.isEmpty()) {
-					System.out.println("......il thread sta aspettando per vedere se i nodi che mancano rispondono......");	//TODO remove me
+				while (rollCallingCounter > 0 && stillMissingNodes) {
+					System.out.println("......il thread " + threadId + " sta aspettando per vedere se i nodi che mancano rispondono......");	//TODO remove me
 					Thread.sleep(PERIOD_ASK_FOR_ALIVE_AGAIN);
 					for (Map.Entry<Integer, Integer> registerEntry : rollCallRegister.entrySet()) {
 						if (registerEntry.getValue() == SUBJECT_STATE_MISSING) {
@@ -320,8 +334,9 @@ public class BootstrapNode {
 
 					if (missingNodes.isEmpty()) {
 						stillMissingNodes = false;
+						System.out.println("......Non ancano nodi... :) " + threadId); // TODO remove me!!!
 					} else {
-						System.out.println("......Mancano nodi!!"); // TODO remove me!!!
+						System.out.println("......Mancano nodi!! " + threadId); // TODO remove me!!!
 						for (Iterator<Integer> iterator = missingNodes.iterator(); iterator.hasNext();) {
 							Integer missingNodeID = (Integer)iterator.next();
 							ErraNode missingNode = nodes.get(missingNodeID);
@@ -513,5 +528,10 @@ public class BootstrapNode {
 		public String getIP_ADDRESS() {
 			return IP_ADDRESS;
 		}
+	}
+	
+	private void populateForTesting() {
+		ErraNode node = new ErraNode(18, "127.0.0.1");
+		nodes.put(18, node);
 	}
 }
