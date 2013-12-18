@@ -12,6 +12,9 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -41,6 +44,8 @@ public class BootstrapNode {
 
 	private static final long DELAY_ASK_FOR_ALIVE = 1000;
 	private static final long PERIOD_ASK_FOR_ALIVE = 1000;
+	private static final long PERIOD_ASK_FOR_ALIVE_AGAIN = 1000;
+	private static final int TIMES_TO_ASK_AGAIN = 3;
 
 	//	States
 	private static final int STATE_RUNNING = 0;
@@ -66,16 +71,16 @@ public class BootstrapNode {
 	JoinedNodeListenerThread joinedNodeListenerThread;
 	DepartedNodeListenerThread departedNodeListenerThread;
 	AliveNodeListenerThread aliveNodeListenerThread;
-	
+
 	//	Speaking threads
 	AliveAskerThread aliveAskerThread;
 
-	private Map<Integer, Node> nodes;
+	private Map<Integer, ErraNode> nodes;
 	private Map<Integer, Integer> rollCallRegister;	// "registro per fare l'appello"
 	//FIXME meglio gestirlo con un array? piu' veloce?
 
 	private BootstrapNode() {
-		nodes = new HashMap<Integer, BootstrapNode.Node>();
+		nodes = new HashMap<Integer, BootstrapNode.ErraNode>();
 		rollCallRegister = new HashMap<Integer, Integer>();
 
 		currentState = STATE_RUNNING;
@@ -100,7 +105,7 @@ public class BootstrapNode {
 
 		aliveNodeListenerThread = new AliveNodeListenerThread();
 		aliveNodeListenerThread.start();
-		
+
 		aliveAskerThread = new AliveAskerThread();
 	}	// BootstrapNode()
 
@@ -128,8 +133,8 @@ public class BootstrapNode {
 	//	W@erraid@numeronodiattivinellarete@ip#erraid%ip#erraid%ip#erraid%...%
 	private String getNodesMapToString() {
 		String mapToString = String.valueOf(nodes.size()) + "@";
-		for(Map.Entry<Integer, Node> entry : nodes.entrySet()) {
-			Node currentNode = entry.getValue();
+		for(Map.Entry<Integer, ErraNode> entry : nodes.entrySet()) {
+			ErraNode currentNode = entry.getValue();
 			mapToString += String.valueOf(currentNode.getID()) + "#" + currentNode.getIP_ADDRESS() + "%";
 		}
 		return mapToString;
@@ -295,18 +300,59 @@ public class BootstrapNode {
 				DatagramSocket datagramSocket = new DatagramSocket(PORT_ASK_ALIVE_NODES);
 				DatagramPacket datagramPacket;
 				byte[] msg = (new String("?")).getBytes();
-				for(Map.Entry<Integer, Node> entry : nodes.entrySet()) {
-					Node currentNode = entry.getValue();
+				for(Map.Entry<Integer, ErraNode> entry : nodes.entrySet()) {
+					ErraNode currentNode = entry.getValue();
 					datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(currentNode.getIP_ADDRESS()), PORT_ASK_ALIVE_NODES);
 					datagramSocket.send(datagramPacket);
 				}
+
+				int rollCallingCounter = TIMES_TO_ASK_AGAIN;
+				boolean stillMissingNodes = true;
+				List<Integer> missingNodes = new LinkedList<Integer>();
+				while (rollCallingCounter > 0 && !missingNodes.isEmpty()) {
+					System.out.println("......il thread sta aspettando per vedere se i nodi che mancano rispondono......");	//TODO remove me
+					Thread.sleep(PERIOD_ASK_FOR_ALIVE_AGAIN);
+					for (Map.Entry<Integer, Integer> registerEntry : rollCallRegister.entrySet()) {
+						if (registerEntry.getValue() == SUBJECT_STATE_MISSING) {
+							missingNodes.add(registerEntry.getKey());
+						}
+					}
+
+					if (missingNodes.isEmpty()) {
+						stillMissingNodes = false;
+					} else {
+						System.out.println("......Mancano nodi!!"); // TODO remove me!!!
+						for (Iterator<Integer> iterator = missingNodes.iterator(); iterator.hasNext();) {
+							Integer missingNodeID = (Integer)iterator.next();
+							ErraNode missingNode = nodes.get(missingNodeID);
+							datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(missingNode.getIP_ADDRESS()), PORT_ASK_ALIVE_NODES);
+							datagramSocket.send(datagramPacket);
+							rollCallingCounter--;
+						}
+					}
+				}
+				
 				datagramSocket.close();
-//				TODO faccio partire un timer che conta il time-out per chiedere di nuovo quali sudditi sono vivi, nel caso qualcuno non abbia risposto
+				
+				if (stillMissingNodes) {
+					for (Iterator<Integer> iterator = missingNodes.iterator(); iterator.hasNext();) {
+						Integer missingNodeID = (Integer)iterator.next();
+						rollCallRegister.put(missingNodeID, SUBJECT_STATE_DEAD);
+//						rollCallRegister.remove(missingNodeID);	//TODO choose what to do!
+						nodes.remove(missingNodeID);
+						System.out.println("Perso nodo " + missingNodeID + "!");
+					}
+				}
+				
+				currentState = STATE_RUNNING;
+
 			} catch (SocketException e) {
 				e.printStackTrace();
 			} catch (UnknownHostException e) {
 				e.printStackTrace();
 			} catch (IOException e) {
+				e.printStackTrace();
+			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
 
@@ -351,7 +397,7 @@ public class BootstrapNode {
 						ipString += ":" + address[i];
 					}
 					int currentId = node_id++;
-					Node node = new Node(currentId, ipString);
+					ErraNode node = new ErraNode(currentId, ipString);
 					nodes.put(currentId, node);
 					rollCallRegister.put(currentId, SUBJECT_STATE_ALIVE);
 
@@ -450,12 +496,12 @@ public class BootstrapNode {
 	 * @author martinit
 	 *
 	 */
-	private class Node {
+	private class ErraNode {
 
 		private final int ID;
 		private final String IP_ADDRESS;
 
-		public Node(int id, String ip) {
+		public ErraNode(int id, String ip) {
 			ID = id;
 			IP_ADDRESS = ip;
 		}
