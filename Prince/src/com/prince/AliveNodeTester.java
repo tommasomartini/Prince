@@ -1,9 +1,10 @@
 package com.prince;
 
-import java.net.*;
-import java.util.Random;
+import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.util.Scanner;
-import java.io.*;
 
 public class AliveNodeTester {
 	
@@ -29,7 +30,7 @@ public class AliveNodeTester {
 			} else {
 				System.out.println("Il nodo e' attivo!");
 			}
-			aliveSocket = new DatagramSocket(PORT_ALIVE);
+			aliveSocket = new DatagramSocket(PORT_ALIVE, InetAddress.getByName("127.0.0.2"));
 			System.out.println("Sono in ascolto sulla porta " + PORT_ALIVE + "...");
 		} catch (IOException e) {
 			e.printStackTrace();

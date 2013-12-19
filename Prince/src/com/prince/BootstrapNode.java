@@ -42,6 +42,8 @@ public class BootstrapNode {
 	// Subject node ports
 	private static final int PORT_ALIVE_LISTENER = 7000;
 	private static final int PORT_REFRESH_TABLE_LISTENER = 7004;
+	
+	private static final String MY_IP_ADDRESS_STRING = "127.0.0.1";	// solo per il testing!
 
 	//	Times and periods
 	private static final long DELAY_ASK_FOR_ALIVE = 0;
@@ -212,7 +214,7 @@ public class BootstrapNode {
 		public AliveNodeListenerThread() {
 			super();
 			try {
-				aliveNodeListener = new DatagramSocket(PORT_ALIVE_LISTENER);
+				aliveNodeListener = new DatagramSocket(PORT_ALIVE_LISTENER, InetAddress.getByName(MY_IP_ADDRESS_STRING));
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -251,7 +253,7 @@ public class BootstrapNode {
 			System.out.println("Nuovo AliveAskerThread con id: " + threadId);
 			currentState = STATE_ROLL_CALLING;
 			try {
-				DatagramSocket datagramSocket = new DatagramSocket(PORT_ASK_ALIVE_NODES);
+				DatagramSocket datagramSocket = new DatagramSocket(PORT_ASK_ALIVE_NODES, InetAddress.getByName(MY_IP_ADDRESS_STRING));
 				DatagramPacket datagramPacket;
 				byte[] msg = (new String("?")).getBytes();
 				for(Map.Entry<Integer, ErraNode> entry : nodes.entrySet()) {
@@ -466,7 +468,7 @@ public class BootstrapNode {
 	}
 
 	private void populateForTesting() {
-		ErraNode node = new ErraNode(18, "127.0.0.1");
+		ErraNode node = new ErraNode(18, "127.0.0.2");
 		nodes.put(18, node);
 	}
 
