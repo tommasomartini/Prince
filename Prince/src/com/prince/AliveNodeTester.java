@@ -8,14 +8,11 @@ import java.io.*;
 public class AliveNodeTester {
 	
 	private static boolean alive = true;
-
-	private static final String ADDRESS = "127.0.0.1";
-	private static final int PORT = 8002;
-
-	private Socket socket;
-	private ServerSocket aliveSocket;
-	
-	Random random;
+	private DatagramSocket aliveSocket;
+	private InetAddress bootstrapAddress;
+	private int bootstrapPort;
+	private static final int PORT_ALIVE = 7000;
+	private static final int PORT_ANSWER_ALIVE = 8003;
 
 	public static void main(String args[]) {
 		AliveNodeTester aliveNodeTester = new AliveNodeTester();
@@ -23,7 +20,6 @@ public class AliveNodeTester {
 	}
 
 	public AliveNodeTester() {
-		random = new Random();
 		try {
 			System.out.println("Nodo vivo? s/n");
 			Scanner scanner = new Scanner(System.in);
@@ -33,23 +29,29 @@ public class AliveNodeTester {
 			} else {
 				System.out.println("Il nodo e' attivo!");
 			}
-			aliveSocket = new ServerSocket(8000);
-			System.out.println("Sono in ascolto...");
+			aliveSocket = new DatagramSocket(PORT_ALIVE);
+			System.out.println("Sono in ascolto sulla porta " + PORT_ALIVE + "...");
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 	
 	private void runTester() {
+		byte[] receiveData = new byte[10];
 		while (true) {
 			try {
-				Socket socket = aliveSocket.accept();
-				BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-				String msg = reader.readLine();
+				DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+                aliveSocket.receive(receivePacket);
+                String msg = new String(receivePacket.getData());
+                bootstrapAddress = receivePacket.getAddress();
+                bootstrapPort = receivePacket.getPort();
+				System.out.println("Letta la stringa: " + msg);
 				if (!msg.substring(0, 1).equalsIgnoreCase("?")) {
 					System.err.println("Il primo carattere ricevuto non e' ?");
 				}
-				sendMessage();
+				if (alive) {
+					sendMessage();
+				}
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -58,9 +60,10 @@ public class AliveNodeTester {
 
 	private void sendMessage() {
 		try {
-			PrintStream printStream = new PrintStream(socket.getOutputStream());
-//			printStream.println("!@" + random.nextInt(100));
-			printStream.println("!@18");
+			byte[] buf = (new String("!@18")).getBytes();
+			DatagramPacket packet = new DatagramPacket(buf, buf.length, bootstrapAddress, PORT_ANSWER_ALIVE);
+			aliveSocket.send(packet);
+			System.out.println("Pacchetto inviato al bootstrap tramite la porta " + aliveSocket.getLocalPort() + " sulla porta " + PORT_ANSWER_ALIVE + " del bootstrap.");
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
