@@ -30,7 +30,7 @@ public class AliveNodeTester {
 			} else {
 				System.out.println("Il nodo e' attivo!");
 			}
-			aliveSocket = new DatagramSocket(PORT_ALIVE, InetAddress.getByName("127.0.0.2"));
+			aliveSocket = new DatagramSocket(PORT_ALIVE);
 			System.out.println("Sono in ascolto sulla porta " + PORT_ALIVE + "...");
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -62,7 +62,7 @@ public class AliveNodeTester {
 	private void sendMessage() {
 		try {
 			byte[] buf = (new String("!@18")).getBytes();
-			DatagramPacket packet = new DatagramPacket(buf, buf.length, bootstrapAddress, PORT_ANSWER_ALIVE);
+			DatagramPacket packet = new DatagramPacket(buf, buf.length, InetAddress.getByName("127.0.0.1"), PORT_ANSWER_ALIVE);
 			aliveSocket.send(packet);
 			System.out.println("Pacchetto inviato al bootstrap tramite la porta " + aliveSocket.getLocalPort() + " sulla porta " + PORT_ANSWER_ALIVE + " del bootstrap.");
 		} catch (IOException e) {
