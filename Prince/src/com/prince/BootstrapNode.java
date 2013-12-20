@@ -347,14 +347,10 @@ public class BootstrapNode {
 			} else {
 
 				InetAddress inetAddress = socket.getInetAddress();
-				byte[] address = inetAddress.getAddress();
-				if (address.length <= 0) {
+				String ipString = inetAddress.getHostAddress();
+				if (ipString.length() <= 0) {
 					//	TODO lanciare un'eccezione perche' ho ricevuto un indirizzo vuoto!
 				} else {
-					String ipString = String.valueOf(address[0]);
-					for (int i = 1; i < address.length; i++) {
-						ipString += ":" + address[i];
-					}
 					int currentId = node_id++;
 					ErraNode node = new ErraNode(currentId, ipString);
 					spreadNetworkChanges(node, true);
@@ -403,7 +399,7 @@ public class BootstrapNode {
 				ErraNode removedNode = removeErraNode(identifier);
 				if (removedNode != null) {
 					System.out.println("Nodo " + identifier + " rimosso dalla rete");
-					spreadNetworkChanges(removedNode, false);
+//					spreadNetworkChanges(removedNode, false);
 					removeNodeFromRegister(identifier);
 					//rollCallRegister.put(identifier, SUBJECT_STATE_DEAD);
 				} else {
@@ -490,12 +486,10 @@ public class BootstrapNode {
 	}
 
 	private synchronized void addNodeToRegister(int erraNodeID) {
-		System.out.println("Qualcuno sta modificando il registro!");
 		rollCallRegister.put(erraNodeID, SubjectState.SUBJECT_STATE_ALIVE);
 	}
 
 	private synchronized SubjectState removeNodeFromRegister(int erraNodeID) {
-		System.out.println("Qualcuno sta modificando il registro!");
 		return rollCallRegister.remove(erraNodeID);
 	}
 	
@@ -506,7 +500,7 @@ public class BootstrapNode {
 		} else {
 			msg += "-";
 		}
-		msg += changedNode.getID();
+		msg += changedNode.getID() + "#" + changedNode.getIP_ADDRESS();
 		for(Map.Entry<Integer, ErraNode> entry : nodes.entrySet()) {
 			ErraNode currentNode = entry.getValue();
 			try {
