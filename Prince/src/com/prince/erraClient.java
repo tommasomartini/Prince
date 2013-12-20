@@ -9,23 +9,33 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.math.BigInteger;
 import java.net.ConnectException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Random;
 import java.util.Scanner;
+
 
 public class erraClient 
 {
 	public static int CONNECTION_TIMEOUT=5000;		
 
 	public static int UDP_PORT_ALIVE=7000;
+	public static int UDP_ALIVE_ANSWER=8003;
+
+	
 	public static int TCP_PORT_WELCOME=7001;
 	public static int TCP_PORT_FORWARDING=7002;
 	public static int TCP_PORT_SENDING=7003;
@@ -34,16 +44,14 @@ public class erraClient
 	public static int TCP_BOOTSTRAP_PORT_GOODBYE=8002;
 
 
-	public static String BOOTSTRAP_ADDRESS="127.0.0.1";
+	public static String BOOTSTRAP_ADDRESS="10.192.23.46";
 
 	public static String ERRA_ADDRESS="";
 
-	public static int TOTAL_DEVICES=0;
+	public static int TOTAL_DEVICES=3;
 	
 	
-	//Lunghezza dell'ERRA packet espressa in bytes
-	
-	public static int MSS=51;
+
 
 	public static class erraHost
 	{	public String IP;						//So che viola il principio di incapsulamento...ma chi se ne frega, meglio così senza fare 1000 metodi.
@@ -121,7 +129,15 @@ public class erraClient
 			while(true)
 			{	
 				DatagramPacket receivedPacket = new DatagramPacket(receivedData, receivedData.length);
-				UDP.receive(receivedPacket);
+				try
+				{
+					UDP.receive(receivedPacket);
+				}
+				catch(SocketException e)
+				{
+					System.out.println("Qualcuno mi ha chiuso il socket");
+					return;
+				}
 				String message=new String(receivedPacket.getData());
 				if (message.charAt(0)!='?')
 				{
@@ -130,9 +146,9 @@ public class erraClient
 				else
 				{
 					System.out.println("Segnalo al bootstrap che sono attivo.");
-					String sentence = "!"+ERRA_ADDRESS;
+					String sentence = "!@"+ERRA_ADDRESS;
 					sendData = sentence.getBytes();
-					DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, receivedPacket.getAddress(), receivedPacket.getPort());
+					DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, receivedPacket.getAddress(), UDP_ALIVE_ANSWER);
 					UDP.send(sendPacket);
 				}
 			}
@@ -147,7 +163,8 @@ public class erraClient
 			}
 		}
 	
-		public void releasePort() {UDP.close();}	
+		public void releasePort() 
+		{UDP.close();}
 
 	}
 	
@@ -166,7 +183,15 @@ public class erraClient
 				try
 				{	
 					server=new ServerSocket(TCP_PORT_REFRESH);
-					s=server.accept();
+					
+					try
+					{	
+						s=server.accept();
+					}
+					catch (SocketException e)
+					{	System.out.println("Qualcuno mi ha chiuso la connessione TCP per la topologia");
+						return;
+					}
 					BufferedReader streamFromServer = new BufferedReader(new InputStreamReader(s.getInputStream()));
 					String table="";
 					table=streamFromServer.readLine();
@@ -178,11 +203,11 @@ public class erraClient
 						updateStructure(table.substring(2));
 						showTopology();
 					}
-					else if (table.charAt(0)=='U') //Significa che il bootstrap segnala la variazione su un singolo nodo, devo aggiornare solo una parte della topologia
+					else if (table.charAt(0)=='T') //Significa che il bootstrap segnala la variazione su un singolo nodo, devo aggiornare solo una parte della topologia
 					{	table=table.substring(2);
 						if (table.charAt(0)=='-')
 						{	
-							String brokenErraAddress=table.substring(table.indexOf('@')+1);	
+							String brokenErraAddress=table;
 							for (Iterator<erraHost> i = topology.iterator(); i.hasNext();) 		//RImuovo dalla struttura il defunto nodo!
 							{
 							    erraHost element = (erraHost)(i.next());
@@ -194,7 +219,7 @@ public class erraClient
 						}
 						else if (table.charAt(0)=='+')
 						{	
-							table=table.substring(2);
+							//table=table.substring(2);
 							
 							erraHost H=new erraHost(table.substring(0,table.indexOf("#")),table.substring(table.indexOf("#")+1));
 							//Prima di aggiungerlo alla mia topologia, verifico che non sia già presente!
@@ -230,9 +255,16 @@ public class erraClient
 			}
 		}
 	
-		public void releasePort()throws IOException
-		{server.close();s.close();}
-	
+		public void releasePort() throws IOException
+		{
+			if (s!=null)
+			{
+				s.close();
+				return;
+			}
+			server.close();
+				
+		}
 	}
 
 
@@ -337,7 +369,7 @@ public class erraClient
 	{
 		//Mi connetto con il bootstrap e gli segnalo la mia dipartita....non mi aspetto niente altro!!
 		Socket TCPClientSocket = new Socket(BOOTSTRAP_ADDRESS, TCP_BOOTSTRAP_PORT_GOODBYE);
-		String leaveMessage="E";
+		String leaveMessage="E@"+ERRA_ADDRESS;
 		DataOutputStream streamToServer = new DataOutputStream(TCPClientSocket.getOutputStream());
 		streamToServer.writeBytes(leaveMessage + '\n');	
 		TCPClientSocket.close(); 
@@ -359,37 +391,79 @@ public class erraClient
 		System.out.println("=======================================");
 	}
 	
-	private static final String INPUT_FILE_NAME = "/home/mattia/Desktop/prova.jpg";
+	private static final String INPUT_FILE_NAME = "/home/serena/Scrivania/filediprova";
 	
 	public static void openFile()
 	{
 		  	System.out.println("Reading in binary file named : " + INPUT_FILE_NAME);
 		    File file = new File(INPUT_FILE_NAME);
 		    System.out.println("File length (bytes): "+(int)file.length());
-		    int packets=(int)file.length()/MSS;
-		    System.out.println("Il file acquisito verra frammentato in "+packets+ " pacchetti.");
+		    //pacchetto diviso per il numero di nodi attivi nella rete
+		    int packets=TOTAL_DEVICES;
+		    int packets_length=(int)file.length()/packets;
+		    int residual_pck=0;
+		    if ((int)file.length()/packets!=0)
+		    {
+		    	residual_pck=(int)file.length()-packets*packets_length;
+		    	packets=packets+1;
+		    }
 
+		    System.out.println("Il file acquisito verra frammentato in "+packets+ " pacchetti di lunghezza "+ packets_length);
+		 
+		    LinkedList<byte[]> pcks= new LinkedList<byte[]>();
+		    
 		    try 
-		    {	int totalBytesRead=0;
-		      	InputStream input = null;
+		    { 	InputStream input = null;
 		      	try 
 		      	{
 		      		input = new BufferedInputStream(new FileInputStream(file));
+		      		int numbyte= input.available();
+		      		byte[] result = new byte[numbyte];
+		      		input.read(result);	//array di byte con dentro lo stream di input
 		      		
-		      		for (int i=0;i<packets;i++)
-		      		{	byte[] result = new byte[MSS];
-		      			totalBytesRead+=input.read(result,0, MSS);
-		      			System.out.println("Ciao");
+		      		Random random = new Random();	//sequence number primo pacchetto
+		      		int SN = random.nextInt(5000);
+		      		Integer[] erraAddresses=new Integer[]{5,25,4,10,40,1};
+		      		     		
+		      		for(int i=0;i<packets-1;i++)
+		      		{      			
+		      			String header="@";
+		      			//path--ordine casuale
+		      			Collections.shuffle(Arrays.asList(erraAddresses));
+		      			for(int j=0;j<erraAddresses.length;j++)
+		      			{
+		      				header+= erraAddresses[j].toString();
+		      				if (j!=erraAddresses.length-1)
+		      				{
+		      					header+= "#";
+		      				}	
+		      			}
+		      			SN=SN+i;	
+		      		    String convSN=Integer.toString(SN);
+		      		    header+="@"+convSN+"@";
+		      			
+		      			byte[] newheader=header.getBytes();
+		      			int head_length=newheader.length;
+		      		    byte[] temp = BigInteger.valueOf(head_length).toByteArray(); //da int a byte
+		      		    byte[] headlengthByte= new byte[4];
+		      		    
+		      			head_length=head_length+4;
+		      			byte[] toInsert=new byte[head_length+packets_length];
+		      				      			
 
-		      			//Ora all'interno di result ho MSS bytes di dati relativi al file che voglio inviare al destinatario;
-		      			//OutputStream socketOutputStream = socket.getOutputStream();
-		      			//socketOutputStream.write(message);
-
+		      			//pcks.add(toInsert);
 		      		}
-		        //Ora leggo l'ultimo pacchetto che in generale ha una dimensione minore degli altri
-		        
-		        byte[] result = new byte[(int)file.length()-totalBytesRead];
-	        	totalBytesRead+=input.read(result,0, (int)file.length()-totalBytesRead);
+		      		
+		        //Ora leggo l'ultimo pacchetto di dimensione minore degli altri
+		        if(residual_pck!=0)
+		        {
+		        	byte[] last = new byte[residual_pck];
+		        	for(int j=0;j<residual_pck;j++)
+		        	{
+		        		last[j]=result[(packets-1)*packets_length+j];
+		        	}
+		        	pcks.add(last);
+		        }
 
 		      }
 		      finally 
@@ -409,9 +483,7 @@ public class erraClient
 	public static void main(String[] args) throws InterruptedException
 	{	
 		
-		openFile();
-		
-	/*	System.out.println("Connessione in corso al nodo BOOTSTRAP...");
+		System.out.println("Connessione in corso al nodo BOOTSTRAP...");
 		boolean esito=initializeErra();		
 		if (!esito)
 		{
@@ -424,15 +496,13 @@ public class erraClient
 
 		refreshTopology refresh=new refreshTopology();
 		refresh.start();
-		
-		listen		ToForward F=new listenToForward();
-		F.start();
+		/*
+		ToForward F=new listenToForward();
+		F.start();*/
 
 		while(true)
 		{	
-			
 			Scanner keyboard = new Scanner(System.in);
-
 			String input = keyboard.next();
 			if (input.equals("E"))
 			{	keyboard.close();
@@ -441,18 +511,16 @@ public class erraClient
 				{
 					sayGoodbye();
 					imAlive.releasePort();	//Chiudo la porta sulla quale stavo ascoltando 
-					imAlive.interrupt();
+					//imAlive.interrupt();
 					refresh.releasePort();	//Chiudo la porta sulla quale stavo ascoltando 
-					refresh.interrupt();
+					//refresh.interrupt();
 					System.out.println("Segnalazione completata");
-					System.exit(0);
+					return;
 				}
 				catch (UnknownHostException e){e.printStackTrace();}
 				catch (IOException e){e.printStackTrace();}
 			}
-
-		}*/
-
+		}
 	} 
 
 }
