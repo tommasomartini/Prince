@@ -71,7 +71,15 @@ public class erraClient
 		try
 		{
 			Socket TCPClientSocket = new Socket();
-			TCPClientSocket.connect(new InetSocketAddress(BOOTSTRAP_ADDRESS,TCP_BOOTSTRAP_PORT_WELCOME),CONNECTION_TIMEOUT);
+			
+			try
+			{
+				TCPClientSocket.connect(new InetSocketAddress(BOOTSTRAP_ADDRESS,TCP_BOOTSTRAP_PORT_WELCOME),CONNECTION_TIMEOUT);
+			}
+			catch (IOException e)
+			{	System.err.println("Impossibile raggiungere il bootstrap node.");
+				return false;
+			}
 			System.out.println("...connessione avvenuta correttamente.");
 			
 			String joinMessage="J";
@@ -136,13 +144,14 @@ public class erraClient
 				}
 				catch(SocketException e)
 				{
-					System.out.println("Qualcuno mi ha chiuso il socket");
-					return;
+					System.out.println("Il socket UDP che risponde ai ? è stato chiuso.");
+					return;	//Questo chiude anche il thread
 				}
 				String message=new String(receivedPacket.getData());
 				if (message.charAt(0)!='?')
 				{
 					System.err.println("Ho ricevuto sulla porta "+UDP_PORT_ALIVE+" un pacchetto che non riesco a decodificare.");
+					System.err.println("Il pacchetto è: "+message);
 				}
 				else
 				{
@@ -183,14 +192,13 @@ public class erraClient
 			{
 				try
 				{	
-					server=new ServerSocket(TCP_PORT_REFRESH);
-					
+					server=new ServerSocket(TCP_PORT_REFRESH);		//Mi metto in ascolto in attesa di connessioni TCP
 					try
 					{	
-						s=server.accept();
+						s=server.accept();							//Quanto ho una richiesta di connessione la accetto!
 					}
 					catch (SocketException e)
-					{	System.out.println("Qualcuno mi ha chiuso la connessione TCP per la topologia");
+					{	System.out.println("Il socket TCP per il refresh della topologia è stato chiuso");
 						return;
 					}
 					BufferedReader streamFromServer = new BufferedReader(new InputStreamReader(s.getInputStream()));
@@ -220,8 +228,6 @@ public class erraClient
 						}
 						else if (table.charAt(0)=='+')
 						{	
-							//table=table.substring(2);
-							
 							erraHost H=new erraHost(table.substring(0,table.indexOf("#")),table.substring(table.indexOf("#")+1));
 							//Prima di aggiungerlo alla mia topologia, verifico che non sia già presente!
 							boolean presente=false;
@@ -318,10 +324,7 @@ public class erraClient
 				String erraPacket="";
 				erraPacket=streamFromServer.readLine();
 				mySocket.close();
-				
-				
-
-				System.out.println("Ho letto il pacchetto erra e chiuso la connessione con il mittente");
+				System.out.println("Ho letto il pacchetto erra e chiudo la connessione con il mittente");
 				System.out.println(erraPacket);	
 				
 			}
@@ -340,7 +343,7 @@ public class erraClient
 	}
 	
 	
-	//=================== Riceve una stringa contenente la topologia di rete e aggiora i vettori ====================
+	//=================== Riceve una stringa contenente la topologia di rete e aggiorna la lista ====================
 
 	public static void updateStructure(String fromServer)
 
@@ -392,23 +395,40 @@ public class erraClient
 		System.out.println("=======================================");
 	}
 	
-	private static final String INPUT_FILE_NAME = "/home/serena/Scrivania/filediprova";
+	
+	
+	private static final String INPUT_FILE_NAME = "/home/mattia/Desktop/prova.pdf";
 	
 	public static void openFile()
 	{
-		  	System.out.println("Reading in binary file named : " + INPUT_FILE_NAME);
+		  	System.out.println("Leggo in binario il file " + INPUT_FILE_NAME);
 		    File file = new File(INPUT_FILE_NAME);
 		    System.out.println("File length (bytes): "+(int)file.length());
+		    
 		    //pacchetto diviso per il numero di nodi attivi nella rete
 		    int packets=TOTAL_DEVICES;
 		    int packets_length=(int)file.length()/packets;
 		    int residual_pck=0;
-		    if ((int)file.length()/packets!=0)
+		 
+		    
+		    if ((int)file.length()%packets!=0)
 		    {
 		    	residual_pck=(int)file.length()-packets*packets_length;
 		    	packets=packets+1;
 		    }
 
+
+		    /*		SERENA...questa roba dovrebbe verificare se ci sono pacchetti eccedenti rispetto a packets...quindi dovrebbe tenere in conto
+		     * dei mezzi bits diciamo. Tipo. Devo frammentare 10 bit in 3 pacchetti, allora faccio 3 pacchetti da 3 bit e l'ultimo da un bit.
+		     * Però non fa sta roba. Infatti aggiunge un pacchetto di dimensione nulla in questo caso: File length; 3.130.380, n=3
+		     * Io ho usato il modulo sopra...lascio sta roba così poi se riguardi capisci cosa ho modificato.
+		    if ((int)file.length()/packets!=0)
+		    {
+		    	residual_pck=(int)file.length()-packets*packets_length;
+		    	packets=packets+1;
+		    }
+		    */
+		    
 		    System.out.println("Il file acquisito verra frammentato in "+packets+ " pacchetti di lunghezza "+ packets_length);
 		 
 		    LinkedList<byte[]> pcks= new LinkedList<byte[]>();
@@ -483,8 +503,8 @@ public class erraClient
 
 	public static void main(String[] args) throws InterruptedException
 	{	
-		
-		System.out.println("Connessione in corso al nodo BOOTSTRAP...");
+		openFile();
+	/*	System.out.println("Tentativo di connessione al nodo BOOTSTRAP...");
 		boolean esito=initializeErra();		
 		if (!esito)
 		{
@@ -497,9 +517,9 @@ public class erraClient
 
 		refreshTopology refresh=new refreshTopology();
 		refresh.start();
-		/*
+		
 		ToForward F=new listenToForward();
-		F.start();*/
+		F.start();
 
 		while(true)
 		{	
@@ -512,16 +532,14 @@ public class erraClient
 				{
 					sayGoodbye();
 					imAlive.releasePort();	//Chiudo la porta sulla quale stavo ascoltando 
-					//imAlive.interrupt();
 					refresh.releasePort();	//Chiudo la porta sulla quale stavo ascoltando 
-					//refresh.interrupt();
 					System.out.println("Segnalazione completata");
 					return;
 				}
 				catch (UnknownHostException e){e.printStackTrace();}
 				catch (IOException e){e.printStackTrace();}
 			}
-		}
+		}*/
 	} 
 
 }

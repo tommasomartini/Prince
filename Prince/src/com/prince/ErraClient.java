@@ -1,5 +1,7 @@
 package com.prince;
 
+//					NON PIU VALIDO...quello aggiorato + erraClient.java... 		//
+
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
@@ -61,7 +63,14 @@ public class ErraClient
 		try
 		{
 			Socket TCPClientSocket = new Socket();
-			TCPClientSocket.connect(new InetSocketAddress(BOOTSTRAP_ADDRESS,TCP_BOOTSTRAP_PORT_WELCOME),CONNECTION_TIMEOUT);
+			try
+			{
+				TCPClientSocket.connect(new InetSocketAddress(BOOTSTRAP_ADDRESS,TCP_BOOTSTRAP_PORT_WELCOME),CONNECTION_TIMEOUT);
+			}
+			catch(IOException e)
+			{
+				System.out.println("Impossibile connettersi al BOOTSTRAP specificato");
+			}
 			System.out.println("...connessione avvenuta correttamente.");
 			
 			String joinMessage="J";
