@@ -18,6 +18,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -26,6 +27,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
+
+import javax.swing.*;
+import java.awt.*;
 
 
 
@@ -51,9 +55,6 @@ public class erraClient
 
 	public static int TOTAL_DEVICES=3;
 	
-	
-
-
 	public static class erraHost
 	{	public String IP;						//So che viola il principio di incapsulamento...ma chi se ne frega, meglio così senza fare 1000 metodi.
 		public String erraAddress;
@@ -323,6 +324,7 @@ public class erraClient
 				BufferedReader streamFromServer = new BufferedReader(new InputStreamReader(mySocket.getInputStream()));
 				String erraPacket="";
 				erraPacket=streamFromServer.readLine();
+
 				mySocket.close();
 				System.out.println("Ho letto il pacchetto erra e chiudo la connessione con il mittente");
 				System.out.println(erraPacket);	
@@ -396,16 +398,14 @@ public class erraClient
 	}
 	
 	
+	//=========Questa funzione apre un file e lo spezzetta in pacchetti pronti per essere inviati!
 	
-	private static final String INPUT_FILE_NAME = "/home/mattia/Desktop/prova.pdf";
-	
-	public static void openFile()
+	public static LinkedList<byte[]> wrap(String filename)
 	{
-		  	System.out.println("Leggo in binario il file " + INPUT_FILE_NAME);
-		    File file = new File(INPUT_FILE_NAME);
+		  	System.out.println("Leggo in binario il file " + filename);
+		    File file = new File(filename);
 		    System.out.println("File length (bytes): "+(int)file.length());
 		    
-		    //pacchetto diviso per il numero di nodi attivi nella rete
 		    int packets=TOTAL_DEVICES;
 		    int packets_length=(int)file.length()/packets;
 		    int residual_pck=0;
@@ -416,94 +416,100 @@ public class erraClient
 		    	residual_pck=(int)file.length()-packets*packets_length;
 		    	packets=packets+1;
 		    }
-
-
-		    /*		SERENA...questa roba dovrebbe verificare se ci sono pacchetti eccedenti rispetto a packets...quindi dovrebbe tenere in conto
-		     * dei mezzi bits diciamo. Tipo. Devo frammentare 10 bit in 3 pacchetti, allora faccio 3 pacchetti da 3 bit e l'ultimo da un bit.
-		     * Però non fa sta roba. Infatti aggiunge un pacchetto di dimensione nulla in questo caso: File length; 3.130.380, n=3
-		     * Io ho usato il modulo sopra...lascio sta roba così poi se riguardi capisci cosa ho modificato.
-		    if ((int)file.length()/packets!=0)
-		    {
-		    	residual_pck=(int)file.length()-packets*packets_length;
-		    	packets=packets+1;
-		    }
-		    */
 		    
-		    System.out.println("Il file acquisito verra frammentato in "+packets+ " pacchetti di lunghezza "+ packets_length);
+		    System.out.println("Il file acquisito verra frammentato in "+packets+ " pacchetti.");
 		 
-		    LinkedList<byte[]> pcks= new LinkedList<byte[]>();
-		    
+		    LinkedList<byte[]> pcks= new LinkedList<byte[]>();		//Questa lista contiene i pacchetti pronti per essere spediti
+
 		    try 
 		    { 	InputStream input = null;
 		      	try 
 		      	{
 		      		input = new BufferedInputStream(new FileInputStream(file));
-		      		int numbyte= input.available();
-		      		byte[] result = new byte[numbyte];
-		      		input.read(result);	//array di byte con dentro lo stream di input
-		      		
-		      		Random random = new Random();	//sequence number primo pacchetto
+		      		Random random = new Random();
 		      		int SN = random.nextInt(5000);
-		      		Integer[] erraAddresses=new Integer[]{5,25,4,10,40,1};
-		      		     		
-		      		for(int i=0;i<packets-1;i++)
-		      		{      			
-		      			String header="@";
-		      			//path--ordine casuale
-		      			Collections.shuffle(Arrays.asList(erraAddresses));
-		      			for(int j=0;j<erraAddresses.length;j++)
-		      			{
-		      				header+= erraAddresses[j].toString();
-		      				if (j!=erraAddresses.length-1)
-		      				{
-		      					header+= "#";
-		      				}	
-		      			}
-		      			SN=SN+i;	
-		      		    String convSN=Integer.toString(SN);
-		      		    header+="@"+convSN+"@";
-		      			
-		      			byte[] newheader=header.getBytes();
-		      			int head_length=newheader.length;
-		      		    byte[] temp = BigInteger.valueOf(head_length).toByteArray(); //da int a byte
-		      		    byte[] headlengthByte= new byte[4];
-		      		    
-		      			head_length=head_length+4;
-		      			byte[] toInsert=new byte[head_length+packets_length];
-		      				      			
-
-		      			//pcks.add(toInsert);
-		      		}
 		      		
-		        //Ora leggo l'ultimo pacchetto di dimensione minore degli altri
-		        if(residual_pck!=0)
-		        {
-		        	byte[] last = new byte[residual_pck];
-		        	for(int j=0;j<residual_pck;j++)
-		        	{
-		        		last[j]=result[(packets-1)*packets_length+j];
-		        	}
-		        	pcks.add(last);
-		        }
+		      		for(int i=0;i<packets;i++)
+		      		{   byte[] data;
+		      			if (i==packets-1)
+		      			{
+		      				data= new byte[residual_pck];
+		      				input.read(data,0,residual_pck);
+		      			}
+		      			else
+		      			{
+		      				data = new byte[packets_length];
+		      				input.read(data,0,packets_length);
+		      			}
+		      			
+		      			String header="";
+		      			Collections.shuffle(topology);
+		      			for (Iterator<erraHost> it = topology.iterator(); it.hasNext();)
+						{
+						    erraHost element = (erraHost)(it.next());
+						    header+=element.erraAddress+"#";
+						}
+	
+		      		    header+="@"+Integer.toString(SN+i)+"@";
 
+		      			byte[] newheader=header.getBytes();
+		      			
+		      			byte[] headlengthByte= new byte[4];
+		      			headlengthByte=ByteBuffer.allocate(4).putInt(newheader.length).array();		//Questi sono 4 bytes che esprimono la porzione di pacchetto destinata all'header
+		      			
+		      			byte[] packet=new byte[4+newheader.length+data.length];				//LunghezzaHeader+Routing+Dati
+		      			System.arraycopy(headlengthByte, 0, packet, 0, 4);					//Copio il numero di bytes di cui è composto l'header
+		      			System.arraycopy(newheader, 0, packet, 4, newheader.length);		//Copio l'header
+		      			System.arraycopy(data, 0, packet, 4+newheader.length, data.length);
+		      			pcks.add(packet);
+		      			
+		      			/*
+		      			//Ora qui simulo una decodifica del mio pacchetto, per vedere come va!
+		      			//packet è il pacchetto ricevuto
+		      			byte[] hLen=new byte[4];
+		      			System.arraycopy(packet, 0, hLen, 0, 4);
+		      			int l = ByteBuffer.wrap(hLen).getInt();	//Estraggo a partire dal quarto byte L bytes
+		      			byte[] H=new byte[l];
+		      			System.arraycopy(packet, 4, H, 0, l);
+		      			String sH=new String(H, "US-ASCII");
+		      			System.out.println(sH);*/
+		      		}
 		      }
 		      finally 
 		      {	
-		    	System.out.println("Closing input stream.");
-		        input.close();
+		    	System.out.println("Tutto il file è stato acquisito");
+		    	input.close();
 		      }
 		    }
 		    catch (FileNotFoundException ex) {
-		    	System.out.println("File not found.");
+		    	System.out.println("File not found");
 		    }
 		    catch (IOException ex) {
 		    	System.out.println(ex);
+		    	System.out.println("CIAO");
 		    }
+		    return pcks;
 	}
+
+	//=========Questa funzione consente di inviare un file ad un erra host ================
+	public static void send()
+	{
+		//Scelgo il file da inviare...
+		JFileChooser chooser = new JFileChooser();
+		chooser.setCurrentDirectory(new File("."));
+	    int r = chooser.showOpenDialog(new JFrame());
+		if (r == JFileChooser.APPROVE_OPTION) 
+		{
+			//Scelgo l'erra address a cui mandare il file scelto
+			String path=chooser.getSelectedFile().getPath();
+			wrap(path);
+		}
+	}
+	
 
 	public static void main(String[] args) throws InterruptedException
 	{	
-		openFile();
+		send();
 	/*	System.out.println("Tentativo di connessione al nodo BOOTSTRAP...");
 		boolean esito=initializeErra();		
 		if (!esito)
@@ -541,5 +547,5 @@ public class erraClient
 			}
 		}*/
 	} 
-
+	
 }
