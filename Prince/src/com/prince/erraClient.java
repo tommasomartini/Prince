@@ -9,6 +9,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.net.ConnectException;
 import java.net.DatagramPacket;
@@ -30,6 +32,7 @@ import java.util.Scanner;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ItemListener;
 
 
 
@@ -47,6 +50,7 @@ public class erraClient
 	public static int TCP_PORT_REFRESH=7004;
 	public static int TCP_BOOTSTRAP_PORT_WELCOME=8001;
 	public static int TCP_BOOTSTRAP_PORT_GOODBYE=8002;
+
 
 
 	public static String BOOTSTRAP_ADDRESS="10.192.23.46";
@@ -338,10 +342,7 @@ public class erraClient
 			{
 				e.printStackTrace();
 			}
-			
 		}
-		
-		
 	}
 	
 	
@@ -400,13 +401,12 @@ public class erraClient
 	
 	//=========Questa funzione apre un file e lo spezzetta in pacchetti pronti per essere inviati!
 	
-	public static LinkedList<byte[]> wrap(String filename)
+	public static LinkedList<byte[]> wrap(String filename,String erraDest)
 	{
-		  	System.out.println("Leggo in binario il file " + filename);
 		    File file = new File(filename);
-		    System.out.println("File length (bytes): "+(int)file.length());
 		    
-		    int packets=TOTAL_DEVICES;
+		    
+		    int packets=topology.size();
 		    int packets_length=(int)file.length()/packets;
 		    int residual_pck=0;
 		 
@@ -416,9 +416,8 @@ public class erraClient
 		    	residual_pck=(int)file.length()-packets*packets_length;
 		    	packets=packets+1;
 		    }
+		    System.out.print("Reading file ["+filename+"]...");
 		    
-		    System.out.println("Il file acquisito verra frammentato in "+packets+ " pacchetti.");
-		 
 		    LinkedList<byte[]> pcks= new LinkedList<byte[]>();		//Questa lista contiene i pacchetti pronti per essere spediti
 
 		    try 
@@ -447,10 +446,11 @@ public class erraClient
 		      			for (Iterator<erraHost> it = topology.iterator(); it.hasNext();)
 						{
 						    erraHost element = (erraHost)(it.next());
+						    if (!(element.erraAddress.equals(erraDest)))
 						    header+=element.erraAddress+"#";
 						}
-	
-		      		    header+="@"+Integer.toString(SN+i)+"@";
+		      				
+		      		    header+=erraDest+"@"+Integer.toString(SN+i)+"@";
 
 		      			byte[] newheader=header.getBytes();
 		      			
@@ -462,37 +462,27 @@ public class erraClient
 		      			System.arraycopy(newheader, 0, packet, 4, newheader.length);		//Copio l'header
 		      			System.arraycopy(data, 0, packet, 4+newheader.length, data.length);
 		      			pcks.add(packet);
-		      			
-		      			/*
-		      			//Ora qui simulo una decodifica del mio pacchetto, per vedere come va!
-		      			//packet è il pacchetto ricevuto
-		      			byte[] hLen=new byte[4];
-		      			System.arraycopy(packet, 0, hLen, 0, 4);
-		      			int l = ByteBuffer.wrap(hLen).getInt();	//Estraggo a partire dal quarto byte L bytes
-		      			byte[] H=new byte[l];
-		      			System.arraycopy(packet, 4, H, 0, l);
-		      			String sH=new String(H, "US-ASCII");
-		      			System.out.println(sH);*/
 		      		}
 		      }
 		      finally 
-		      {	
-		    	System.out.println("Tutto il file è stato acquisito");
+		      {	System.out.println("finished: "+(int)file.length()+" bytes successfully read. The file will be splitted into "+packets+" packets.");
 		    	input.close();
 		      }
 		    }
 		    catch (FileNotFoundException ex) {
 		    	System.out.println("File not found");
 		    }
-		    catch (IOException ex) {
+		    catch (IOException ex) 
+		    {
 		    	System.out.println(ex);
-		    	System.out.println("CIAO");
+
 		    }
 		    return pcks;
 	}
 
 	//=========Questa funzione consente di inviare un file ad un erra host ================
-	public static void send()
+
+	public static void send() throws UnsupportedEncodingException 
 	{
 		//Scelgo il file da inviare...
 		JFileChooser chooser = new JFileChooser();
@@ -500,15 +490,62 @@ public class erraClient
 	    int r = chooser.showOpenDialog(new JFrame());
 		if (r == JFileChooser.APPROVE_OPTION) 
 		{
-			//Scelgo l'erra address a cui mandare il file scelto
 			String path=chooser.getSelectedFile().getPath();
-			wrap(path);
+			String erraDest="45";								//Scelgo l'erra address a cui mandare il file scelto
+			LinkedList<byte[]> pcks=wrap(path,erraDest);		//Pacchettizzo il file e mi preparo per l'invio
+  		
+			int i=1;
+			for (Iterator it = pcks.iterator(); it.hasNext();)
+			{
+			    byte[] packet = (byte[])(it.next());
+			    byte[] hLen=new byte[4];
+      			System.arraycopy(packet, 0, hLen, 0, 4);
+      			int l = ByteBuffer.wrap(hLen).getInt();			
+      			byte[] H=new byte[l];
+      			System.arraycopy(packet, 4, H, 0, l);
+      			String sH=new String(H, "US-ASCII");
+      			String nextHop=sH.substring(0,sH.indexOf("#"));	//Questo è l'erraAddress a cui devo inviare il pacchetto...
+      			String nextIP=getIP(nextHop);
+      			try
+      			{
+      				Socket TCPClientSocket = new Socket();
+      				TCPClientSocket.connect(new InetSocketAddress(nextIP,TCP_PORT_FORWARDING),CONNECTION_TIMEOUT);
+          			OutputStream out = TCPClientSocket.getOutputStream(); 
+          			DataOutputStream dos = new DataOutputStream(out);
+          			dos.write(packet, 0, packet.length);
+          			TCPClientSocket.close(); 
+          			System.out.println("Il pacchetto "+(i++)+"/"+pcks.size()+" all'erraHost "+nextHop+" all'indirizzo IP "+nextIP);	
+      			}
+      			catch (IOException e)
+      			{
+      				System.err.println("Il pacchetto "+(i++)+"/"+pcks.size()+" all'erraHost "+nextHop+" all'indirizzo IP "+nextIP+" non è stato recapitato");	
+      			}
+			}
+			System.out.println("File processing completed");
 		}
 	}
 	
+	public static String getIP(String erraAdd)
+	{
+		for (Iterator<erraHost> i = topology.iterator(); i.hasNext();) 		//RImuovo dalla struttura il defunto nodo!
+		{
+		    erraHost element = (erraHost)(i.next());
+		    if(element.erraAddress.equals(erraAdd))
+		    {
+		        return element.IP;
+		    }
+		}
+		return "";
+	}
 
-	public static void main(String[] args) throws InterruptedException
+	public static void main(String[] args) throws InterruptedException, UnsupportedEncodingException
 	{	
+		topology.add(new erraHost("192.168.2.1","41"));
+		topology.add(new erraHost("192.168.2.2","42"));
+		topology.add(new erraHost("192.168.2.3","43"));
+		topology.add(new erraHost("192.168.2.4","44"));
+		topology.add(new erraHost("192.168.2.5","45"));
+		topology.add(new erraHost("192.168.2.6","46"));
 		send();
 	/*	System.out.println("Tentativo di connessione al nodo BOOTSTRAP...");
 		boolean esito=initializeErra();		
@@ -547,5 +584,6 @@ public class erraClient
 			}
 		}*/
 	} 
+	
 	
 }
