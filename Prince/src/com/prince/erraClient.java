@@ -2,6 +2,8 @@ package com.prince;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -53,7 +55,7 @@ public class erraClient
 
 
 
-	public static String BOOTSTRAP_ADDRESS="10.192.23.46";
+	public static String BOOTSTRAP_ADDRESS="127.0.0.1";
 
 	public static String ERRA_ADDRESS="";
 
@@ -289,7 +291,7 @@ public class erraClient
 		
 		public void run()
 		{
-			System.out.println("Sono pronto a sniffare i pacchetti e a forwardarli al giusto destinatario!");
+			System.out.println("Sono in ascolto sulla porta "+TCP_PORT_FORWARDING+" in attesa di eventuali pacchetti da forwardare");
 			try
 			{
 				serverSocket = new ServerSocket(TCP_PORT_FORWARDING);
@@ -316,7 +318,7 @@ public class erraClient
 		private Socket mySocket;
 		
 		public forward(Socket s)
-		{	super();
+		{	
 			mySocket=s;
 		}
 		
@@ -324,14 +326,46 @@ public class erraClient
 		{
 			try
 			{
-				System.out.println("Un socket TCP nuovo sta gestendo una richiesta di forwarding sulla porta 7002");
-				BufferedReader streamFromServer = new BufferedReader(new InputStreamReader(mySocket.getInputStream()));
-				String erraPacket="";
-				erraPacket=streamFromServer.readLine();
-
-				mySocket.close();
+				System.out.println("Un socket TCP sta gestendo una richiesta di forwarding sulla porta 7002");
+				//BufferedReader streamFromServer = new BufferedReader(new InputStreamReader(mySocket.getInputStream()));
+				
+				InputStream inputStream = mySocket.getInputStream();  
+				ByteArrayOutputStream baos = new ByteArrayOutputStream(); 
+				
+				byte[] content = new byte[2048];  
+				int bytesRead = -1;  
+				while((bytesRead = inputStream.read(content))!= -1) 
+				{  
+				    baos.write( content, 0, bytesRead );  
+				} 
+				
+				//SONO ARRIVATO QUI...ho ricevuto un pacchetto, come capisco se è per me??? Se è finito, se devo fare forwarding==??
+				
+				byte[] packet=baos.toByteArray();	
+			    byte[] hLen=new byte[4];
+      			System.arraycopy(packet, 0, hLen, 0, 4);
+      			int l = ByteBuffer.wrap(hLen).getInt();			
+      			byte[] H=new byte[l];							//Questi sono i bytes che rappresentano l'header
+      			System.arraycopy(packet, 4, H, 0, l);
+      			String sH=new String(H, "US-ASCII");			//Questa è la stringa che codifica il mio header
+      			String nextHop=sH.substring(0,sH.indexOf("#"));	//Questo è l'erraAddress a cui devo inviare il pacchetto...
+      			String nextIP=getIP(nextHop);
+				
+				
+				
+				
+				System.out.println(packet.length);
+				try
+				{
+					mySocket.close();
+				}
+				catch (IOException e)
+				{
+					
+				}
+				
 				System.out.println("Ho letto il pacchetto erra e chiudo la connessione con il mittente");
-				System.out.println(erraPacket);	
+				return;	
 				
 			}
 			catch (ConnectException e)
@@ -399,12 +433,12 @@ public class erraClient
 	}
 	
 	
+	
 	//=========Questa funzione apre un file e lo spezzetta in pacchetti pronti per essere inviati!
 	
 	public static LinkedList<byte[]> wrap(String filename,String erraDest)
 	{
 		    File file = new File(filename);
-		    
 		    
 		    int packets=topology.size();
 		    int packets_length=(int)file.length()/packets;
@@ -482,10 +516,10 @@ public class erraClient
 
 	//=========Questa funzione consente di inviare un file ad un erra host ================
 
+
 	public static void send() throws UnsupportedEncodingException 
 	{
-		//Scelgo il file da inviare...
-		JFileChooser chooser = new JFileChooser();
+		JFileChooser chooser = new JFileChooser();				//Mostro una finestra per la scelta del file da inviare
 		chooser.setCurrentDirectory(new File("."));
 	    int r = chooser.showOpenDialog(new JFrame());
 		if (r == JFileChooser.APPROVE_OPTION) 
@@ -501,9 +535,9 @@ public class erraClient
 			    byte[] hLen=new byte[4];
       			System.arraycopy(packet, 0, hLen, 0, 4);
       			int l = ByteBuffer.wrap(hLen).getInt();			
-      			byte[] H=new byte[l];
+      			byte[] H=new byte[l];							//Questi sono i bytes che rappresentano l'header
       			System.arraycopy(packet, 4, H, 0, l);
-      			String sH=new String(H, "US-ASCII");
+      			String sH=new String(H, "US-ASCII");			//Questa è la stringa che codifica il mio header
       			String nextHop=sH.substring(0,sH.indexOf("#"));	//Questo è l'erraAddress a cui devo inviare il pacchetto...
       			String nextIP=getIP(nextHop);
       			try
@@ -514,7 +548,7 @@ public class erraClient
           			DataOutputStream dos = new DataOutputStream(out);
           			dos.write(packet, 0, packet.length);
           			TCPClientSocket.close(); 
-          			System.out.println("Il pacchetto "+(i++)+"/"+pcks.size()+" all'erraHost "+nextHop+" all'indirizzo IP "+nextIP);	
+          			System.out.println("Il pacchetto "+(i++)+"/"+pcks.size()+" all'erraHost "+nextHop+" all'indirizzo IP "+nextIP+" è stato inviato");	
       			}
       			catch (IOException e)
       			{
@@ -525,6 +559,9 @@ public class erraClient
 		}
 	}
 	
+	//========== Restituisce l'IP dell'erraHost specificato =========================
+	
+
 	public static String getIP(String erraAdd)
 	{
 		for (Iterator<erraHost> i = topology.iterator(); i.hasNext();) 		//RImuovo dalla struttura il defunto nodo!
@@ -538,16 +575,24 @@ public class erraClient
 		return "";
 	}
 
+	
+	
+	
 	public static void main(String[] args) throws InterruptedException, UnsupportedEncodingException
 	{	
-		topology.add(new erraHost("192.168.2.1","41"));
+		
+		listenToForward F=new listenToForward();
+		F.start();
+		
+		
+		/*topology.add(new erraHost("192.168.2.1","41"));
 		topology.add(new erraHost("192.168.2.2","42"));
 		topology.add(new erraHost("192.168.2.3","43"));
 		topology.add(new erraHost("192.168.2.4","44"));
 		topology.add(new erraHost("192.168.2.5","45"));
 		topology.add(new erraHost("192.168.2.6","46"));
-		send();
-	/*	System.out.println("Tentativo di connessione al nodo BOOTSTRAP...");
+		send();*/
+		/*System.out.println("Tentativo di connessione al nodo BOOTSTRAP...");
 		boolean esito=initializeErra();		
 		if (!esito)
 		{
@@ -561,7 +606,7 @@ public class erraClient
 		refreshTopology refresh=new refreshTopology();
 		refresh.start();
 		
-		ToForward F=new listenToForward();
+		listenToForward F=new listenToForward();
 		F.start();
 
 		while(true)
