@@ -29,7 +29,8 @@ password: principe
 sudo apt-get install libmysql-java
  */
 
-public class BootstrapNode {
+public class BootstrapNode 
+{
 
 	//	Listening ports
 	private static final int PORT_JOINED_NODE = 8001;

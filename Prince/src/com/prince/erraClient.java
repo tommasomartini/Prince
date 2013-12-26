@@ -41,6 +41,8 @@ public class erraClient
 {
 	public static int CONNECTION_TIMEOUT=5000;		
 
+	public static int MINIMUM_PAYLOAD=100;
+	
 	public static int UDP_PORT_ALIVE=7000;
 	public static int UDP_ALIVE_ANSWER=8003;
 
@@ -51,7 +53,7 @@ public class erraClient
 	public static int TCP_BOOTSTRAP_PORT_WELCOME=8001;
 	public static int TCP_BOOTSTRAP_PORT_GOODBYE=8002;
 
-	public static String BOOTSTRAP_ADDRESS="127.0.0.1";
+	public static String BOOTSTRAP_ADDRESS="87.4.245.122";
 	public static String ERRA_ADDRESS="";
 	public static int TOTAL_DEVICES=3;
 	
@@ -422,7 +424,6 @@ public class erraClient
 		
 		public void run()
 		{
-			System.out.println("Sono in ascolto sulla porta "+TCP_PORT_FORWARDING+" in attesa di eventuali pacchetti da forwardare");
 			try
 			{
 				serverSocket = new ServerSocket(TCP_PORT_FORWARDING);
@@ -436,9 +437,16 @@ public class erraClient
 			}
 			catch (IOException e)
 			{
-				e.printStackTrace();
+				System.out.println("Il socket TCP per il forwarding è stato chiuso");
 			}
 		}	
+	
+		public void releasePort() throws IOException
+		{
+			serverSocket.close();
+		}
+	
+	
 	}
 	
 	
@@ -487,8 +495,8 @@ public class erraClient
 				sH=sH.substring(j+1);							//Tolgo dall'header il mio erraAddress, e poi guardo cosa c'è dopo!
 				
 				int k=sH.indexOf("#");							//Cerco il prossimo hop da fare, se c'è!
-				
-				if (k!=-1)
+				int y=sH.indexOf("@");
+				if (k!=-1 && k<y)
 				{	//Il pacchetto è di qualcun altro...devo fare il forwarding. Tolgo il primo erraAddress e ne faccio il forwarding
 					String nextHop=sH.substring(0,sH.indexOf("#"));	//Questo è l'erraAddress a cui devo inviare il pacchetto...
 					byte[] headlengthByte= new byte[4];			//Questi sono i 4 bytes che descrivono la lunghezza dell'header
@@ -576,11 +584,21 @@ public class erraClient
 	public static void sayGoodbye() throws UnknownHostException, IOException
 	{
 		//Mi connetto con il bootstrap e gli segnalo la mia dipartita....non mi aspetto niente altro!!
-		Socket TCPClientSocket = new Socket(BOOTSTRAP_ADDRESS, TCP_BOOTSTRAP_PORT_GOODBYE);
-		String leaveMessage="E@"+ERRA_ADDRESS;
-		DataOutputStream streamToServer = new DataOutputStream(TCPClientSocket.getOutputStream());
-		streamToServer.writeBytes(leaveMessage + '\n');	
-		TCPClientSocket.close(); 
+		Socket TCPClientSocket = new Socket();
+		
+		try
+		{
+			TCPClientSocket.connect(new InetSocketAddress(BOOTSTRAP_ADDRESS, TCP_BOOTSTRAP_PORT_GOODBYE),CONNECTION_TIMEOUT);
+			String leaveMessage="E@"+ERRA_ADDRESS;
+			DataOutputStream streamToServer = new DataOutputStream(TCPClientSocket.getOutputStream());
+			streamToServer.writeBytes(leaveMessage + '\n');	
+			TCPClientSocket.close(); 
+		}
+		catch(IOException e)
+		{
+			System.err.println("Il bootstrap non è più raggiungibile");
+		}
+		
 	}
 
 	
@@ -607,7 +625,17 @@ public class erraClient
 		    File file = new File(filename);
 		    if((int)file.length()==0)
 		    	return null;
-		    int packets=topology.size();
+		    
+		    int packets=topology.size()-1;		//Questa è la base di partenza
+		    
+		    if (topology.size()<=3)				//Se siamo in 3 o meno, esiste solo un percorso che posso fare da A a B, quindi spezzo in un solo pacchetto!!
+		    	packets=1;
+
+		    while((int)file.length()/packets<MINIMUM_PAYLOAD && packets>1)
+		    {
+		    	packets--;	//Non vogliamo che, anche se ci sono diversi utenti nella rete, il file contenga un payload troppo piccolo
+		    }
+
 		    int packets_length=(int)file.length()/packets;
 		    int residual_pck=0;
 		 
@@ -665,7 +693,6 @@ public class erraClient
 		      			System.arraycopy(newheader, 0, packet, 4, newheader.length);		//Copio l'header
 		      			System.arraycopy(data, 0, packet, 4+newheader.length, data.length);
 		      			pcks.add(packet);
-		      			System.out.println(header);
 		      		}
 		      }
 		      finally 
@@ -684,19 +711,55 @@ public class erraClient
 		    return pcks;
 	}
 
+	
 	//=========Questa funzione consente di inviare un file ad un erra host ================
-
 
 	public static void send() throws UnsupportedEncodingException 
 	{
+		
+		if (topology.size()<=1)
+		{
+			System.out.println("Per inviare un file è necessario che nella rete vi sia almeno un altro erraHost oltre a te!");
+			return;
+		}
+		
 		JFileChooser chooser = new JFileChooser();				//Mostro una finestra per la scelta del file da inviare
 		chooser.setCurrentDirectory(new File("."));
 	    int r = chooser.showOpenDialog(new JFrame());
 		if (r == JFileChooser.APPROVE_OPTION) 
 		{
 			String path=chooser.getSelectedFile().getPath();
+			System.out.println("Inserire l'erra host a cui è destinato il file specificato tra i seguenti.");
+			for (Iterator<erraHost> i = topology.iterator(); i.hasNext();) 
+			{
+			    erraHost element = (erraHost)(i.next());
+			    if (!(element.erraAddress.equals(ERRA_ADDRESS)))
+			    System.out.print(element.erraAddress+", ");
+			}
 			
-			String erraDest="45";								//Scelgo l'erra address a cui mandare il file scelto
+			String erraDest="";
+			boolean valid=false;
+			while (!valid)
+			{
+				Scanner keyboard = new Scanner(System.in);
+				String input = keyboard.next();
+
+				if(input.equals(ERRA_ADDRESS))
+				{
+					System.err.println("Specifica un destinatario diverso da te stesso");
+				}
+				else
+				{
+					for (Iterator<erraHost> i = topology.iterator(); i.hasNext();) 
+					{
+						erraHost element = (erraHost)(i.next());
+						if (input.equals(element.erraAddress)){valid=true;break;}
+					}
+					if (!(valid)){System.err.println("L'erra address specificato non è valido, riprovare.");}
+					if (valid)erraDest=input;
+				}
+			}
+
 			LinkedList<byte[]> pcks=wrap(path,erraDest);		//Pacchettizzo il file e mi preparo per l'invio
 			
 			if (pcks==null)
@@ -718,7 +781,7 @@ public class erraClient
       			System.arraycopy(packet, 4, H, 0, l);
       			
       			String sH=new String(H, "US-ASCII");			//Questa è la stringa che codifica il mio header
-      			
+      			System.out.println(sH);
       			String nextHop=sH.substring(0,sH.indexOf("#"));	//Questo è l'erraAddress a cui devo inviare il pacchetto...
       			String nextIP=getIP(nextHop);
       			try
@@ -757,26 +820,26 @@ public class erraClient
 	}
 
 	
+	
 	public static void main(String[] args) throws InterruptedException, UnsupportedEncodingException
 	{	
 		
 		FM=new fileManager();
-		
-	/*	topology.add(new erraHost("192.168.2.1","41"));
-		topology.add(new erraHost("192.168.2.2","42"));
-		topology.add(new erraHost("192.168.2.3","43"));
-		topology.add(new erraHost("192.168.2.4","44"));
-		topology.add(new erraHost("192.168.2.5","45"));
-		topology.add(new erraHost("192.168.2.6","46"));*/
 	
-		System.out.println("Tentativo di connessione al nodo BOOTSTRAP...");
-		boolean esito=initializeErra();		
+		//System.out.println("Tentativo di connessione al nodo BOOTSTRAP...");
+		/*boolean esito=initializeErra();		
 		if (!esito)
 		{
 			System.err.println("Si è manifestato un errore nella connessione al nodo di BOOTSTRAP...l'applicazione verrà chiusa.");
 			return;
-		}
-
+		}*/
+		ERRA_ADDRESS="40";
+		topology.add(new erraHost("192.168.1.1","40"));
+		topology.add(new erraHost("192.168.1.2","41"));
+		topology.add(new erraHost("192.168.1.3","42"));
+		topology.add(new erraHost("192.168.1.4","43"));
+		topology.add(new erraHost("192.168.1.5","44"));
+		
 		answerAliveRequest imAlive=new answerAliveRequest();
 		imAlive.start();
 
@@ -797,8 +860,9 @@ public class erraClient
 				{
 					sayGoodbye();
 					imAlive.releasePort();	//Chiudo la porta sulla quale stavo ascoltando 
-					refresh.releasePort();	//Chiudo la porta sulla quale stavo ascoltando 
-					System.out.println("Segnalazione completata");
+					refresh.releasePort();	//Chiudo la porta sulla quale stavo ascoltando
+					F.releasePort();		//Chiudo la porta sulla quale stavo ascoltando
+					System.out.println("Chiusura di tutti i thread completata");
 					return;
 				}
 				catch (UnknownHostException e){e.printStackTrace();}
