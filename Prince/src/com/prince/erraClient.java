@@ -1,6 +1,7 @@
 package com.prince;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -8,6 +9,7 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -58,23 +60,81 @@ public class erraClient
 	
 	
 	public static class file
-	{
-		public file(){}
-
-		private static class filePart
+	{	public String fileName;
+		public int packets;
+		
+		private List<filePart> parts = new ArrayList<filePart>();
+		
+		public file()
 		{
+			fileName="";packets=0;
+		}
+
+		public file(String name,int n)
+		{
+			fileName=name;
+			packets=n;
+		}
+		
+		public boolean add(int SN,byte[] data) 			//Restituisco true se l'aggiunta del pacchetto ha completato il file
+		{
+			filePart t=new filePart(SN,data);
+			parts.add(t);
+			System.out.println("Ricevuto e archiviato frammento con SN "+SN+ " appartenente al file "+fileName);
+			if (parts.size()==packets)
+			{
+				//Ora che ho tutti gli elementi estraggo, riordino, scrivo!
+				Collections.sort(parts);
+				OutputStream output = null;
+				try{
+					output = new BufferedOutputStream(new FileOutputStream(fileName));
+					try
+					{
+						for (Iterator<filePart> i = parts.iterator(); i.hasNext();)
+						{
+							filePart f = (filePart)(i.next());
+							output.write(f.data);
+						}
+					}
+					finally
+					{	
+						System.out.println("Ricezione del file "+fileName+" completata. Il file è stato scritto correttamente");
+						output.close();
+					}
+					return true;
+				}
+				catch (IOException e)
+				{System.err.println("Impossibile generare il file");}
+			}
+			return false;
+		}	
+		
+		private static class filePart implements Comparable<filePart>
+		{
+			public filePart(int N,byte[] d)
+			{
+				SN=N;
+				data=new byte[d.length];
+				System.arraycopy(d, 0, data, 0, d.length);
+		
+			}
+			
+			public int compareTo(filePart compareObject) 
+			{ 
+				if (SN < compareObject.SN) return -1; else if (SN == compareObject.SN) return 0; else return 1;
+			}
+			
 			public int SN;
-			public String fileName;
-			public int parts;
+			public byte[] data;
+
 		}
 	}
 
 	
 	public static class fileManager
 	{
-		private List<file> fileList = new ArrayList<file>();
-		
-		
+		private List<file> fileList; 		//Contiene i file di cui ho ricevuto parte del contenuto e che stanno per essere scritti
+
 		public fileManager(){fileList=null;}
 		
 		public void add(String header,byte[] packet)
@@ -87,27 +147,51 @@ public class erraClient
 			
 			String filename=header.substring(0,header.indexOf("@"));
 			
-			if (fileList==null)
+			boolean esito=false;
+			file t=null;
+			
+			
+			if (fileList==null)				//Nessun file è presente, significa che tutti i file sono stati scritti e questa è la primissima parte di un file che richevo
 			{
-				
+				t=new file(filename,parts);
+				esito=t.add(SN,packet);
+				fileList= new ArrayList<file>();
+				fileList.add(t);
 			}
 			else
 			{
+				boolean pending=false;
 				for (Iterator<file> i = fileList.iterator(); i.hasNext();)
 				{
-				    file f = (file)(i.next());
-				}	
+				    t = (file)(i.next());
+				    if (t.fileName.equals(filename))
+				    {
+				    	pending=true;
+				    	esito=t.add(SN,packet);
+				    }
+				}
+				
+				if(!pending)
+				{
+					//Significa che, sebbene vi siano altri file pending, questo frammento appartiene ad un altro file!
+					t=new file(filename,parts);
+					t.add(SN,packet);
+					esito=fileList.add(t);
+				}
 			}
-		
-
+			if (esito)
+			{
+				//Significa che il frammento ricevuto ha completato il file, che va quindi rimosso da quelli in sospeso
+				fileList.remove(t);
+				System.out.println("Un file è stato completato e rimosso dalla lista che ora conta "+fileList.size()+" elementi.");
+			}
 		}
 	
 		public int filePending(){return (fileList==null)?0:fileList.size();}
 	
 	}
 	
-	
-	
+
 	public static class erraHost
 	{	public String IP;
 		public String erraAddress;
@@ -373,13 +457,10 @@ public class erraClient
 		{
 			try
 			{
-				System.out.println("Un socket TCP sta gestendo una richiesta di forwarding sulla porta 7002");
-
 				/*
 				 * Tutta questa prima parte serve per leggere uno stream di bytes da un socket TCP.
 				 * Il risultato della lettura è memorizzato nella varibile byte[] packet.
 				 */
-
 				InputStream inputStream = mySocket.getInputStream();  
 				ByteArrayOutputStream baos = new ByteArrayOutputStream(); 
 				byte[] content = new byte[2048];  
@@ -436,8 +517,6 @@ public class erraClient
 				else
 				{
 					//Il pacchetto è mio e solamento mio (tessoooooro)
-					System.out.println("Ho ricevuto un pacchetto con pezzi di roba indirizzati a me!!!!");
-					
 					//Estraggo dal mio pacchetto la porzione che riguarda il payload.
 					int dataSize=packet.length-l-4;
 					byte[] data=new byte[dataSize];
@@ -657,7 +736,6 @@ public class erraClient
 	
 	//========== Restituisce l'IP dell'erraHost specificato =========================
 	
-
 	public static String getIP(String erraAdd)
 	{
 		for (Iterator<erraHost> i = topology.iterator(); i.hasNext();) 		//RImuovo dalla struttura il defunto nodo!
