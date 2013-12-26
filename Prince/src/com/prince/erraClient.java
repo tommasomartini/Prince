@@ -327,64 +327,67 @@ public class erraClient
 			try
 			{
 				System.out.println("Un socket TCP sta gestendo una richiesta di forwarding sulla porta 7002");
-		
+
 				/*
 				 * Tutta questa prima parte serve per leggere uno stream di bytes da un socket TCP.
 				 * Il risultato della lettura è memorizzato nella varibile byte[] packet.
 				 */
-				
+
 				InputStream inputStream = mySocket.getInputStream();  
 				ByteArrayOutputStream baos = new ByteArrayOutputStream(); 
 				byte[] content = new byte[2048];  
 				int bytesRead = -1;  
 				while((bytesRead = inputStream.read(content))!= -1) 
 				{  
-				    baos.write( content, 0, bytesRead );  
+					baos.write( content, 0, bytesRead );  
 				} 
-				
-				byte[] packet=baos.toByteArray();	
-			    byte[] hLen=new byte[4];
-			    
-      			System.arraycopy(packet, 0, hLen, 0, 4);
-      			int l = ByteBuffer.wrap(hLen).getInt();			
-      			byte[] H=new byte[l];							//Questi sono i bytes che rappresentano l'header
-      			
-      			
-      			System.arraycopy(packet, 4, H, 0, l);
-      			String sH=new String(H, "US-ASCII");			//Questa è la stringa che codifica il mio header
-      			String nextHop=sH.substring(0,sH.indexOf("#"));	//Questo è l'erraAddress a cui devo inviare il pacchetto...
-      			
-      			if (nextHop.equals(ERRA_ADDRESS))
-      			{
-      				//Il pacchetto è per me e devo pensare ad un modo furbo per gestirlo!
-      			}
-      			else
-      			{
-      				//Il pacchetto è di qualcun altro...devo fare il forwarding. Tolgo il primo erraAddress e ne faccio il forwarding
-	      			byte[] headlengthByte= new byte[4];			//Questi sono i 4 bytes che descrivono la lunghezza dell'header
-	      			headlengthByte=ByteBuffer.allocate(4).putInt(packet.length-nextHop.length()-5).array();		
-	      			
-	      			byte[] forwardPacket=new byte[packet.length-nextHop.length()-1];				
 
-	      			System.arraycopy(headlengthByte, 0, forwardPacket, 0, 4);					
-	      			System.arraycopy(packet, 5+nextHop.length(), forwardPacket, 4, packet.length-5-nextHop.length());
-	      			
-	      			String nextIP=getIP(nextHop);
-	      			try
-	      			{
-	      				Socket TCPClientSocket = new Socket();
-	      				TCPClientSocket.connect(new InetSocketAddress(nextIP,TCP_PORT_FORWARDING),CONNECTION_TIMEOUT);
-	          			OutputStream out = TCPClientSocket.getOutputStream(); 
-	          			DataOutputStream dos = new DataOutputStream(out);
-	          			dos.write(forwardPacket, 0, forwardPacket.length);
-	          			TCPClientSocket.close(); 
-	          			System.out.println("Forwarding all'erraHost "+nextHop+" completato.");	
-	      			}
-	      			catch (IOException e)
-	      			{
-	      				System.err.println("Forwarding all'erraHost "+nextHop+" fallito");	
-	      			}
-      			}
+				byte[] packet=baos.toByteArray();	
+				byte[] hLen=new byte[4];
+
+				System.arraycopy(packet, 0, hLen, 0, 4);
+				int l = ByteBuffer.wrap(hLen).getInt();			
+				byte[] H=new byte[l];							//Questi sono i bytes che rappresentano l'header
+
+				System.arraycopy(packet, 4, H, 0, l);
+				String sH=new String(H, "US-ASCII");			//Questa è la stringa che codifica il mio header
+
+				int j=sH.indexOf("#");
+				sH=sH.substring(j+1);							//Tolgo dall'header il mio erraAddress, e poi guardo cosa c'è dopo!
+				int k=sH.indexOf("#");							//Cerco il prossimo hop da fare, se c'è!
+				
+				if (k!=-1)
+				{	//Il pacchetto è di qualcun altro...devo fare il forwarding. Tolgo il primo erraAddress e ne faccio il forwarding
+					String nextHop=sH.substring(0,sH.indexOf("#"));	//Questo è l'erraAddress a cui devo inviare il pacchetto...
+					byte[] headlengthByte= new byte[4];			//Questi sono i 4 bytes che descrivono la lunghezza dell'header
+					headlengthByte=ByteBuffer.allocate(4).putInt(packet.length-j-5).array();		
+
+					byte[] forwardPacket=new byte[packet.length-nextHop.length()-1];				
+
+					System.arraycopy(headlengthByte, 0, forwardPacket, 0, 4);					
+					System.arraycopy(packet, 5+nextHop.length(), forwardPacket, 4, packet.length-5-j);
+
+					String nextIP=getIP(nextHop);
+					try
+					{
+						Socket TCPClientSocket = new Socket();
+						TCPClientSocket.connect(new InetSocketAddress(nextIP,TCP_PORT_FORWARDING),CONNECTION_TIMEOUT);
+						OutputStream out = TCPClientSocket.getOutputStream(); 
+						DataOutputStream dos = new DataOutputStream(out);
+						dos.write(forwardPacket, 0, forwardPacket.length);
+						TCPClientSocket.close(); 
+						System.out.println("Forwarding all'erraHost "+nextHop+" completato.");	
+					}
+					catch (IOException e)
+					{
+						System.err.println("Forwarding all'erraHost "+nextHop+" fallito");	
+					}
+				}
+				else
+				{
+					//Il pacchetto è mio e solamento mio (tessoooooro)
+					System.out.println("Ho ricevuto un pacchetto con pezzi di roba indirizzati a me!!!!");
+				}
 				try
 				{
 					mySocket.close();
@@ -511,7 +514,7 @@ public class erraClient
 						    header+=element.erraAddress+"#";
 						}
 		      				
-		      		    header+=erraDest+"@"+Integer.toString(SN+i)+"@"+packets+"@"+filename+"@";
+		      		    header+=erraDest+"#"+Integer.toString(SN+i)+"@"+packets+"@"+filename+"@";
 		      
 		      			byte[] newheader=header.getBytes();
 		      			
@@ -593,6 +596,7 @@ public class erraClient
 		}
 	}
 	
+	
 	//========== Restituisce l'IP dell'erraHost specificato =========================
 	
 
@@ -609,8 +613,6 @@ public class erraClient
 		return "";
 	}
 
-	
-	
 	
 	public static void main(String[] args) throws InterruptedException, UnsupportedEncodingException
 	{	
