@@ -18,7 +18,10 @@ import java.io.UnsupportedEncodingException;
 import java.net.ConnectException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.Inet4Address;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -27,6 +30,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -661,7 +665,7 @@ public class erraClient
 		      		for(int i=0;i<packets;i++)
 		      		{   byte[] data;
 		      		
-		      			if (i==packets-1)
+		      			if (i==packets-1 && packets>1)
 		      			{
 		      				data= new byte[residual_pck];
 		      				input.read(data,0,residual_pck);
@@ -795,11 +799,12 @@ public class erraClient
           			System.out.println("Il pacchetto "+(i++)+"/"+pcks.size()+" all'erraHost "+nextHop+" all'indirizzo IP "+nextIP+" è stato inviato");	
       			}
       			catch (IOException e)
-      			{
+      			{	
       				System.err.println("Il pacchetto "+(i++)+"/"+pcks.size()+" all'erraHost "+nextHop+" all'indirizzo IP "+nextIP+" non è stato recapitato");	
       			}
 			}
 			System.out.println("File processing completed");
+			return;
 		}
 	}
 	
@@ -821,11 +826,9 @@ public class erraClient
 
 	
 	
-	public static void main(String[] args) throws InterruptedException, UnsupportedEncodingException
+	public static void main(String[] args) throws InterruptedException, IOException
 	{	
 		
-		FM=new fileManager();
-	
 		//System.out.println("Tentativo di connessione al nodo BOOTSTRAP...");
 		/*boolean esito=initializeErra();		
 		if (!esito)
@@ -833,19 +836,53 @@ public class erraClient
 			System.err.println("Si è manifestato un errore nella connessione al nodo di BOOTSTRAP...l'applicazione verrà chiusa.");
 			return;
 		}*/
-		ERRA_ADDRESS="40";
-		topology.add(new erraHost("192.168.1.1","40"));
-		topology.add(new erraHost("192.168.1.2","41"));
-		topology.add(new erraHost("192.168.1.3","42"));
-		topology.add(new erraHost("192.168.1.4","43"));
-		topology.add(new erraHost("192.168.1.5","44"));
-		
+
+
+		topology.add(new erraHost("192.168.0.2","40"));
+		topology.add(new erraHost("192.168.0.7","41"));
+		//Ora devo solo dalla topologia prendermi il mio erraAddress!!
+		String ipAddress = null;
+		Enumeration<NetworkInterface> net = null;
+		try {
+			net = NetworkInterface.getNetworkInterfaces();
+		} catch (SocketException e) {
+			throw new RuntimeException(e);
+		}
+		while(net.hasMoreElements()){
+			NetworkInterface element = net.nextElement();
+			Enumeration<InetAddress> addresses = element.getInetAddresses();
+			while (addresses.hasMoreElements()){
+				InetAddress ip = addresses.nextElement();
+				if (ip instanceof Inet4Address){
+					if (ip.isSiteLocalAddress())
+					{
+						ipAddress = ip.getHostAddress();
+
+						for (Iterator<erraHost> it = topology.iterator(); it.hasNext();)
+						{
+							erraHost H = (erraHost)(it.next());
+							if( H.IP.equals(ipAddress)){ERRA_ADDRESS=H.erraAddress;}
+						}
+					}
+				}
+			}
+		}
+
+		if(ERRA_ADDRESS.equals(""))
+		{
+			System.err.println("Sono tagliato fuori dalla topologia");
+			return;
+		}
+		showTopology();
+		System.out.println("Io sono "+ERRA_ADDRESS + " con IP "+ipAddress);
+
 		answerAliveRequest imAlive=new answerAliveRequest();
 		imAlive.start();
 
 		refreshTopology refresh=new refreshTopology();
 		refresh.start();
-		
+
+		FM=new fileManager();
 		listenToForward F=new listenToForward();
 		F.start();
 
