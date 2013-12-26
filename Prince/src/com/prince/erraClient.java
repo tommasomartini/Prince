@@ -44,7 +44,6 @@ public class erraClient
 	public static int UDP_PORT_ALIVE=7000;
 	public static int UDP_ALIVE_ANSWER=8003;
 
-	
 	public static int TCP_PORT_WELCOME=7001;
 	public static int TCP_PORT_FORWARDING=7002;
 	public static int TCP_PORT_SENDING=7003;
@@ -58,6 +57,8 @@ public class erraClient
 	
 	public static fileManager FM;		//Questo oggetto, disponibile a tutti, si occuperà di gestire i file pacchettizzati
 	
+	
+	//============== Classi per gestire la generazione di files e il loro riassemblaggio  ====================
 	
 	public static class file
 	{	public String fileName;
@@ -116,9 +117,7 @@ public class erraClient
 				SN=N;
 				data=new byte[d.length];
 				System.arraycopy(d, 0, data, 0, d.length);
-		
 			}
-			
 			public int compareTo(filePart compareObject) 
 			{ 
 				if (SN < compareObject.SN) return -1; else if (SN == compareObject.SN) return 0; else return 1;
@@ -188,7 +187,7 @@ public class erraClient
 		}
 	
 		public int filePending(){return (fileList==null)?0:fileList.size();}
-	
+		
 	}
 	
 
@@ -199,7 +198,8 @@ public class erraClient
 		public erraHost(String IP,String Address){this.IP=IP;erraAddress=Address;}
 	}
 
-	//Questa lista contiene l'elenco di tutti i dispositivi erra attivi nella rete
+	//============== Questa lista contiene l'elenco di tutti i dispositivi erra attivi nella rete
+	
 	public static List<erraHost> topology = new ArrayList<erraHost>();
 	
 	//============== Funzione per inizializzare il sistema ERRA e scoprirne la topologia ======================
@@ -413,7 +413,7 @@ public class erraClient
 	}
 
 
-	//Questo thread ascolta sulla porta 7002. Quando riceve una richiesta di connessione TCP genera un nuovo thread che si occupa di fare 
+	//Questo thread ascolta sulla porta 7002. Quando riceve una richiesta di connessione TCP genera un nuovo thread che si occupa di fare forwarding
 	
 	private static class listenToForward extends Thread
 	{
@@ -442,7 +442,7 @@ public class erraClient
 	}
 	
 	
-	//Questo thread legge un ERRA PACKET e lo invia al prossimo desitnatario
+	//Questo thread legge un ERRA PACKET e se è per me lo tiene, altrimenti fa forwarding
 	
 	private static class forward extends Thread
 	{
@@ -461,6 +461,7 @@ public class erraClient
 				 * Tutta questa prima parte serve per leggere uno stream di bytes da un socket TCP.
 				 * Il risultato della lettura è memorizzato nella varibile byte[] packet.
 				 */
+				
 				InputStream inputStream = mySocket.getInputStream();  
 				ByteArrayOutputStream baos = new ByteArrayOutputStream(); 
 				byte[] content = new byte[2048];  
@@ -484,6 +485,7 @@ public class erraClient
 
 				int j=sH.indexOf("#");
 				sH=sH.substring(j+1);							//Tolgo dall'header il mio erraAddress, e poi guardo cosa c'è dopo!
+				
 				int k=sH.indexOf("#");							//Cerco il prossimo hop da fare, se c'è!
 				
 				if (k!=-1)
@@ -520,10 +522,8 @@ public class erraClient
 					//Estraggo dal mio pacchetto la porzione che riguarda il payload.
 					int dataSize=packet.length-l-4;
 					byte[] data=new byte[dataSize];
-					System.arraycopy(packet, 4+l, data, 0,dataSize);
-					
+					System.arraycopy(packet, 4+l, data, 0,dataSize);	
 					FM.add(sH,data);	//Ficco dentro questo frammento all'interno della classe che si occupa di gestire il tutto
-					
 				}
 				try
 				{
@@ -617,6 +617,7 @@ public class erraClient
 		    	residual_pck=(int)file.length()-packets*packets_length;
 		    	packets=packets+1;
 		    }
+		    
 		    System.out.print("Reading file ["+filename+"]...");
 		    
 		    LinkedList<byte[]> pcks= new LinkedList<byte[]>();		//Questa lista contiene i pacchetti pronti per essere spediti
@@ -631,6 +632,7 @@ public class erraClient
 		      		
 		      		for(int i=0;i<packets;i++)
 		      		{   byte[] data;
+		      		
 		      			if (i==packets-1)
 		      			{
 		      				data= new byte[residual_pck];
@@ -641,13 +643,13 @@ public class erraClient
 		      				data = new byte[packets_length];
 		      				input.read(data,0,packets_length);
 		      			}
-		      			
 		      			String header="";
 		      			Collections.shuffle(topology);
 		      			for (Iterator<erraHost> it = topology.iterator(); it.hasNext();)
 						{
 						    erraHost element = (erraHost)(it.next());
-						    if (!(element.erraAddress.equals(erraDest)))
+						    //Nel path devo omettere il destinatario e il mittente!!
+						    if (!((element.erraAddress.equals(erraDest)) || element.erraAddress.equals(ERRA_ADDRESS)))			///Aggiungi togliere me
 						    header+=element.erraAddress+"#";
 						}
 		      				
@@ -693,6 +695,7 @@ public class erraClient
 		if (r == JFileChooser.APPROVE_OPTION) 
 		{
 			String path=chooser.getSelectedFile().getPath();
+			
 			String erraDest="45";								//Scelgo l'erra address a cui mandare il file scelto
 			LinkedList<byte[]> pcks=wrap(path,erraDest);		//Pacchettizzo il file e mi preparo per l'invio
 			
@@ -709,13 +712,17 @@ public class erraClient
 			    byte[] hLen=new byte[4];
       			System.arraycopy(packet, 0, hLen, 0, 4);
       			int l = ByteBuffer.wrap(hLen).getInt();			
+      			
       			byte[] H=new byte[l];							//Questi sono i bytes che rappresentano l'header
+      			
       			System.arraycopy(packet, 4, H, 0, l);
+      			
       			String sH=new String(H, "US-ASCII");			//Questa è la stringa che codifica il mio header
+      			
       			String nextHop=sH.substring(0,sH.indexOf("#"));	//Questo è l'erraAddress a cui devo inviare il pacchetto...
       			String nextIP=getIP(nextHop);
       			try
-      			{
+      			{	
       				Socket TCPClientSocket = new Socket();
       				TCPClientSocket.connect(new InetSocketAddress(nextIP,TCP_PORT_FORWARDING),CONNECTION_TIMEOUT);
           			OutputStream out = TCPClientSocket.getOutputStream(); 
@@ -755,20 +762,14 @@ public class erraClient
 		
 		FM=new fileManager();
 		
-		
-		topology.add(new erraHost("192.168.2.1","41"));
+	/*	topology.add(new erraHost("192.168.2.1","41"));
 		topology.add(new erraHost("192.168.2.2","42"));
 		topology.add(new erraHost("192.168.2.3","43"));
 		topology.add(new erraHost("192.168.2.4","44"));
 		topology.add(new erraHost("192.168.2.5","45"));
-		topology.add(new erraHost("192.168.2.6","46"));
-		
-		listenToForward F=new listenToForward();
-		F.start();
-		
-
-		//send();
-		/*System.out.println("Tentativo di connessione al nodo BOOTSTRAP...");
+		topology.add(new erraHost("192.168.2.6","46"));*/
+	
+		System.out.println("Tentativo di connessione al nodo BOOTSTRAP...");
 		boolean esito=initializeErra();		
 		if (!esito)
 		{
@@ -803,8 +804,11 @@ public class erraClient
 				catch (UnknownHostException e){e.printStackTrace();}
 				catch (IOException e){e.printStackTrace();}
 			}
-		}*/
+			if (input.equals("S"))
+			{
+				send();
+			}
+		}
 	} 
-	
 	
 }
