@@ -327,11 +327,14 @@ public class erraClient
 			try
 			{
 				System.out.println("Un socket TCP sta gestendo una richiesta di forwarding sulla porta 7002");
-				//BufferedReader streamFromServer = new BufferedReader(new InputStreamReader(mySocket.getInputStream()));
+		
+				/*
+				 * Tutta questa prima parte serve per leggere uno stream di bytes da un socket TCP.
+				 * Il risultato della lettura è memorizzato nella varibile byte[] packet.
+				 */
 				
 				InputStream inputStream = mySocket.getInputStream();  
 				ByteArrayOutputStream baos = new ByteArrayOutputStream(); 
-				
 				byte[] content = new byte[2048];  
 				int bytesRead = -1;  
 				while((bytesRead = inputStream.read(content))!= -1) 
@@ -339,22 +342,49 @@ public class erraClient
 				    baos.write( content, 0, bytesRead );  
 				} 
 				
-				//SONO ARRIVATO QUI...ho ricevuto un pacchetto, come capisco se è per me??? Se è finito, se devo fare forwarding==??
-				
 				byte[] packet=baos.toByteArray();	
 			    byte[] hLen=new byte[4];
+			    
       			System.arraycopy(packet, 0, hLen, 0, 4);
       			int l = ByteBuffer.wrap(hLen).getInt();			
       			byte[] H=new byte[l];							//Questi sono i bytes che rappresentano l'header
+      			
+      			
       			System.arraycopy(packet, 4, H, 0, l);
       			String sH=new String(H, "US-ASCII");			//Questa è la stringa che codifica il mio header
       			String nextHop=sH.substring(0,sH.indexOf("#"));	//Questo è l'erraAddress a cui devo inviare il pacchetto...
-      			String nextIP=getIP(nextHop);
-				
-				
-				
-				
-				System.out.println(packet.length);
+      			
+      			if (nextHop.equals(ERRA_ADDRESS))
+      			{
+      				//Il pacchetto è per me e devo pensare ad un modo furbo per gestirlo!
+      			}
+      			else
+      			{
+      				//Il pacchetto è di qualcun altro...devo fare il forwarding. Tolgo il primo erraAddress e ne faccio il forwarding
+	      			byte[] headlengthByte= new byte[4];			//Questi sono i 4 bytes che descrivono la lunghezza dell'header
+	      			headlengthByte=ByteBuffer.allocate(4).putInt(packet.length-nextHop.length()-5).array();		
+	      			
+	      			byte[] forwardPacket=new byte[packet.length-nextHop.length()-1];				
+
+	      			System.arraycopy(headlengthByte, 0, forwardPacket, 0, 4);					
+	      			System.arraycopy(packet, 5+nextHop.length(), forwardPacket, 4, packet.length-5-nextHop.length());
+	      			
+	      			String nextIP=getIP(nextHop);
+	      			try
+	      			{
+	      				Socket TCPClientSocket = new Socket();
+	      				TCPClientSocket.connect(new InetSocketAddress(nextIP,TCP_PORT_FORWARDING),CONNECTION_TIMEOUT);
+	          			OutputStream out = TCPClientSocket.getOutputStream(); 
+	          			DataOutputStream dos = new DataOutputStream(out);
+	          			dos.write(forwardPacket, 0, forwardPacket.length);
+	          			TCPClientSocket.close(); 
+	          			System.out.println("Forwarding all'erraHost "+nextHop+" completato.");	
+	      			}
+	      			catch (IOException e)
+	      			{
+	      				System.err.println("Forwarding all'erraHost "+nextHop+" fallito");	
+	      			}
+      			}
 				try
 				{
 					mySocket.close();
@@ -363,10 +393,7 @@ public class erraClient
 				{
 					
 				}
-				
-				System.out.println("Ho letto il pacchetto erra e chiudo la connessione con il mittente");
 				return;	
-				
 			}
 			catch (ConnectException e)
 			{
@@ -433,13 +460,13 @@ public class erraClient
 	}
 	
 	
-	
 	//=========Questa funzione apre un file e lo spezzetta in pacchetti pronti per essere inviati!
 	
 	public static LinkedList<byte[]> wrap(String filename,String erraDest)
 	{
 		    File file = new File(filename);
-		    
+		    if((int)file.length()==0)
+		    	return null;
 		    int packets=topology.size();
 		    int packets_length=(int)file.length()/packets;
 		    int residual_pck=0;
@@ -484,8 +511,8 @@ public class erraClient
 						    header+=element.erraAddress+"#";
 						}
 		      				
-		      		    header+=erraDest+"@"+Integer.toString(SN+i)+"@";
-
+		      		    header+=erraDest+"@"+Integer.toString(SN+i)+"@"+packets+"@"+filename+"@";
+		      
 		      			byte[] newheader=header.getBytes();
 		      			
 		      			byte[] headlengthByte= new byte[4];
@@ -496,6 +523,7 @@ public class erraClient
 		      			System.arraycopy(newheader, 0, packet, 4, newheader.length);		//Copio l'header
 		      			System.arraycopy(data, 0, packet, 4+newheader.length, data.length);
 		      			pcks.add(packet);
+		      			System.out.println(header);
 		      		}
 		      }
 		      finally 
@@ -527,7 +555,13 @@ public class erraClient
 			String path=chooser.getSelectedFile().getPath();
 			String erraDest="45";								//Scelgo l'erra address a cui mandare il file scelto
 			LinkedList<byte[]> pcks=wrap(path,erraDest);		//Pacchettizzo il file e mi preparo per l'invio
-  		
+			
+			if (pcks==null)
+			{
+				System.err.println("Impossibile acquisire il file specificato.");
+				return;
+			}
+			
 			int i=1;
 			for (Iterator it = pcks.iterator(); it.hasNext();)
 			{
@@ -580,18 +614,18 @@ public class erraClient
 	
 	public static void main(String[] args) throws InterruptedException, UnsupportedEncodingException
 	{	
-		
-		listenToForward F=new listenToForward();
-		F.start();
-		
-		
-		/*topology.add(new erraHost("192.168.2.1","41"));
+		topology.add(new erraHost("192.168.2.1","41"));
 		topology.add(new erraHost("192.168.2.2","42"));
 		topology.add(new erraHost("192.168.2.3","43"));
 		topology.add(new erraHost("192.168.2.4","44"));
 		topology.add(new erraHost("192.168.2.5","45"));
 		topology.add(new erraHost("192.168.2.6","46"));
-		send();*/
+		
+		listenToForward F=new listenToForward();
+		F.start();
+		
+
+		//send();
 		/*System.out.println("Tentativo di connessione al nodo BOOTSTRAP...");
 		boolean esito=initializeErra();		
 		if (!esito)
