@@ -13,7 +13,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
-import java.math.BigInteger;
 import java.net.ConnectException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -36,8 +35,6 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ItemListener;
 
-
-
 public class erraClient 
 {
 	public static int CONNECTION_TIMEOUT=5000;		
@@ -53,16 +50,66 @@ public class erraClient
 	public static int TCP_BOOTSTRAP_PORT_WELCOME=8001;
 	public static int TCP_BOOTSTRAP_PORT_GOODBYE=8002;
 
-
-
 	public static String BOOTSTRAP_ADDRESS="127.0.0.1";
-
 	public static String ERRA_ADDRESS="";
-
 	public static int TOTAL_DEVICES=3;
 	
+	public static fileManager FM;		//Questo oggetto, disponibile a tutti, si occuperà di gestire i file pacchettizzati
+	
+	
+	public static class file
+	{
+		public file(){}
+
+		private static class filePart
+		{
+			public int SN;
+			public String fileName;
+			public int parts;
+		}
+	}
+
+	
+	public static class fileManager
+	{
+		private List<file> fileList = new ArrayList<file>();
+		
+		
+		public fileManager(){fileList=null;}
+		
+		public void add(String header,byte[] packet)
+		{
+			int SN=Integer.parseInt(header.substring(0,header.indexOf("@")));		
+			header=header.substring(header.indexOf("@")+1);
+			
+			int parts=Integer.parseInt(header.substring(0,header.indexOf("@")));
+			header=header.substring(header.indexOf("@")+1);
+			
+			String filename=header.substring(0,header.indexOf("@"));
+			
+			if (fileList==null)
+			{
+				
+			}
+			else
+			{
+				for (Iterator<file> i = fileList.iterator(); i.hasNext();)
+				{
+				    file f = (file)(i.next());
+				}	
+			}
+		
+
+		}
+	
+		public int filePending(){return (fileList==null)?0:fileList.size();}
+	
+	}
+	
+	
+	
 	public static class erraHost
-	{	public String IP;						//So che viola il principio di incapsulamento...ma chi se ne frega, meglio così senza fare 1000 metodi.
+	{	public String IP;
 		public String erraAddress;
 		public erraHost(){IP="";erraAddress="";}
 		public erraHost(String IP,String Address){this.IP=IP;erraAddress=Address;}
@@ -343,10 +390,12 @@ public class erraClient
 				} 
 
 				byte[] packet=baos.toByteArray();	
+				
 				byte[] hLen=new byte[4];
 
 				System.arraycopy(packet, 0, hLen, 0, 4);
 				int l = ByteBuffer.wrap(hLen).getInt();			
+				
 				byte[] H=new byte[l];							//Questi sono i bytes che rappresentano l'header
 
 				System.arraycopy(packet, 4, H, 0, l);
@@ -380,6 +429,7 @@ public class erraClient
 					}
 					catch (IOException e)
 					{
+
 						System.err.println("Forwarding all'erraHost "+nextHop+" fallito");	
 					}
 				}
@@ -387,6 +437,14 @@ public class erraClient
 				{
 					//Il pacchetto è mio e solamento mio (tessoooooro)
 					System.out.println("Ho ricevuto un pacchetto con pezzi di roba indirizzati a me!!!!");
+					
+					//Estraggo dal mio pacchetto la porzione che riguarda il payload.
+					int dataSize=packet.length-l-4;
+					byte[] data=new byte[dataSize];
+					System.arraycopy(packet, 4+l, data, 0,dataSize);
+					
+					FM.add(sH,data);	//Ficco dentro questo frammento all'interno della classe che si occupa di gestire il tutto
+					
 				}
 				try
 				{
@@ -514,7 +572,7 @@ public class erraClient
 						    header+=element.erraAddress+"#";
 						}
 		      				
-		      		    header+=erraDest+"#"+Integer.toString(SN+i)+"@"+packets+"@"+filename+"@";
+		      		    header+=erraDest+"#"+Integer.toString(SN+i)+"@"+packets+"@"+filename.substring(filename.lastIndexOf('/')+1)+"@";
 		      
 		      			byte[] newheader=header.getBytes();
 		      			
@@ -616,6 +674,10 @@ public class erraClient
 	
 	public static void main(String[] args) throws InterruptedException, UnsupportedEncodingException
 	{	
+		
+		FM=new fileManager();
+		
+		
 		topology.add(new erraHost("192.168.2.1","41"));
 		topology.add(new erraHost("192.168.2.2","42"));
 		topology.add(new erraHost("192.168.2.3","43"));
