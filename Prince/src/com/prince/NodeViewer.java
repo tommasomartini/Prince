@@ -8,8 +8,6 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 
-import com.prince.BootstrapNode.ErraNode;
-
 public class NodeViewer extends JPanel {
 
 	private static final long serialVersionUID = 1L;
@@ -22,14 +20,14 @@ public class NodeViewer extends JPanel {
 			"State"
 	};
 
-	private Map<Integer, BootstrapNode.ErraNode> nodes;
+	private Map<Integer, ErraNode> nodes;
 	
 	public NodeViewer() {
 		super();
 		nodes = null;
 	}
 
-	public void showNetwork(Map<Integer, BootstrapNode.ErraNode> newNodes) {
+	public void showNetwork(Map<Integer, ErraNode> newNodes) {
 		nodes = newNodes;
 		if (!nodes.isEmpty()) {
 			JFrame frame = new JFrame("ERRA Nodes");

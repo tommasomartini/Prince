@@ -57,6 +57,8 @@ public class BootstrapNode {
 	}
 
 	private static BootstrapState currentState;
+	
+	private InetAddress myIPAddress;
 
 	private static int node_id = 0;	// increasing ID assigned to every new node joining the network
 
@@ -78,28 +80,14 @@ public class BootstrapNode {
 	private Map<Integer, SubjectState> rollCallRegister;	// "registro per fare l'appello"
 	
 	private NodeViewer nodeViewer;
-	
-	public class ErraNode {
-
-		private final int ID;
-		private final String IP_ADDRESS;
-
-		public ErraNode(int id, String ip) {
-			ID = id;
-			IP_ADDRESS = ip;
-		}
-
-		public int getID() {
-			return ID;
-		}
-
-		public String getIP_ADDRESS() {
-			return IP_ADDRESS;
-		}
-	}
 
 	private BootstrapNode() {
-		nodes = new HashMap<Integer, BootstrapNode.ErraNode>();
+		try {
+			myIPAddress = InetAddress.getLocalHost();
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+		}	
+		nodes = new HashMap<Integer, ErraNode>();
 		rollCallRegister = new HashMap<Integer, SubjectState>();
 
 		populateForTesting();	// TODO remove me, just for testing
@@ -134,8 +122,7 @@ public class BootstrapNode {
 				String password = (new Scanner(System.in)).nextLine();
 				if (password.equalsIgnoreCase(BOOTSTRAP_PASSWORD)) {
 					System.out.println("Correct password.\nThe Bootstrap Node will be disconnected...");
-					shutdown();
-					// TODO prepare for closing...
+					shutdown();	// TODO prepare for closing...
 					System.out.println("...bye!");
 					System.exit(0);
 				} else {
