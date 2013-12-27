@@ -46,6 +46,7 @@ public class erraClient
 	public static int CONNECTION_TIMEOUT=5000;		
 
 	public static int MINIMUM_PAYLOAD=100;
+	public static int MAX_PAYLOAD=2048000;
 	
 	public static int UDP_PORT_ALIVE=7000;
 	public static int UDP_ALIVE_ANSWER=8003;
@@ -87,7 +88,7 @@ public class erraClient
 		{
 			filePart t=new filePart(SN,data);
 			parts.add(t);
-			System.out.println("Ricevuto e archiviato frammento con SN "+SN+ " appartenente al file "+fileName+". Dati ricevuti: "+data.length);
+			System.out.println("Ricevuto frammento "+SN+ " ["+data.length+" bytes] appartenente al file "+fileName);
 			if (parts.size()==packets)
 			{
 				//Ora che ho tutti gli elementi estraggo, riordino, scrivo!
@@ -105,7 +106,7 @@ public class erraClient
 					}
 					finally
 					{	
-						System.out.println("Ricezione del file "+fileName+" completata. Il file è stato scritto correttamente");
+						System.out.println("Ricezione del file "+fileName+" completata. Il file e' stato scritto correttamente");
 						output.close();
 					}
 					return true;
@@ -155,7 +156,7 @@ public class erraClient
 			boolean esito=false;
 			file t=null;
 			
-			if (fileList==null)				//Nessun file è presente, significa che tutti i file sono stati scritti e questa è la primissima parte di un file che richevo
+			if (fileList==null)				//Nessun file e' presente, significa che tutti i file sono stati scritti e questa e' la primissima parte di un file che richevo
 			{
 				t=new file(filename,parts);
 				esito=t.add(SN,packet);
@@ -187,7 +188,7 @@ public class erraClient
 			{
 				//Significa che il frammento ricevuto ha completato il file, che va quindi rimosso da quelli in sospeso
 				fileList.remove(t);
-				System.out.println("Un file è stato completato e rimosso dalla lista che ora conta "+fileList.size()+" elementi.");
+				System.out.println("Un file e' stato completato e rimosso dalla lista che ora conta "+fileList.size()+" elementi.");
 			}
 		}
 	
@@ -247,7 +248,7 @@ public class erraClient
 			}
 			else
 			{
-				System.err.println("Ho ricevuto sulla porta "+TCP_PORT_WELCOME+" un dato che non è una tabella della rete!!");
+				System.err.println("Ho ricevuto sulla porta "+TCP_PORT_WELCOME+" un dato che non e' una tabella della rete!!");
 			}
 		}
 		catch (ConnectException e)
@@ -287,14 +288,14 @@ public class erraClient
 				}
 				catch(SocketException e)
 				{
-					System.out.println("Il socket UDP che risponde ai ? è stato chiuso.");
+					System.out.println("Il socket UDP che risponde ai ? e' stato chiuso.");
 					return;	//Questo chiude anche il thread
 				}
 				String message=new String(receivedPacket.getData());
 				if (message.charAt(0)!='?')
 				{
 					System.err.println("Ho ricevuto sulla porta "+UDP_PORT_ALIVE+" un pacchetto che non riesco a decodificare.");
-					System.err.println("Il pacchetto è: "+message);
+					System.err.println("Il pacchetto e': "+message);
 				}
 				else
 				{
@@ -341,7 +342,7 @@ public class erraClient
 						s=server.accept();							//Quanto ho una richiesta di connessione la accetto!
 					}
 					catch (SocketException e)
-					{	System.out.println("Il socket TCP per il refresh della topologia è stato chiuso");
+					{	System.out.println("Il socket TCP per il refresh della topologia e' stato chiuso");
 						return;
 					}
 					BufferedReader streamFromServer = new BufferedReader(new InputStreamReader(s.getInputStream()));
@@ -389,7 +390,7 @@ public class erraClient
 					}
 					else
 					{
-						System.err.println("Ho ricevuto sulla porta "+TCP_PORT_REFRESH+" un dato che non è una tabella della rete!!");
+						System.err.println("Ho ricevuto sulla porta "+TCP_PORT_REFRESH+" un dato che non e' una tabella della rete!!");
 					}
 					server.close();
 					s.close();
@@ -440,7 +441,7 @@ public class erraClient
 			}
 			catch (IOException e)
 			{
-				System.out.println("Il socket TCP per il forwarding è stato chiuso");
+				System.out.println("Il socket TCP per il forwarding e' stato chiuso");
 			}
 		}	
 	
@@ -453,7 +454,7 @@ public class erraClient
 	}
 	
 	
-	//Questo thread legge un ERRA PACKET e se è per me lo tiene, altrimenti fa forwarding
+	//Questo thread legge un ERRA PACKET e se e' per me lo tiene, altrimenti fa forwarding
 	
 	private static class forward extends Thread
 	{
@@ -470,7 +471,7 @@ public class erraClient
 			{
 				/*
 				 * Tutta questa prima parte serve per leggere uno stream di bytes da un socket TCP.
-				 * Il risultato della lettura è memorizzato nella varibile byte[] packet.
+				 * Il risultato della lettura e' memorizzato nella varibile byte[] packet.
 				 */
 				
 				InputStream inputStream = mySocket.getInputStream();  
@@ -492,17 +493,17 @@ public class erraClient
 				byte[] H=new byte[l];							//Questi sono i bytes che rappresentano l'header
 
 				System.arraycopy(packet, 4, H, 0, l);
-				String sH=new String(H, "US-ASCII");			//Questa è la stringa che codifica il mio header
+				String sH=new String(H, "US-ASCII");			//Questa e' la stringa che codifica il mio header
 
 				int j=sH.indexOf("#");
-				sH=sH.substring(j+1);							//Tolgo dall'header il mio erraAddress, e poi guardo cosa c'è dopo!
+				sH=sH.substring(j+1);							//Tolgo dall'header il mio erraAddress, e poi guardo cosa c'e' dopo!
 				
-				int k=sH.indexOf("#");							//Cerco il prossimo hop da fare, se c'è!
+				int k=sH.indexOf("#");							//Cerco il prossimo hop da fare, se c'e'!
 				int y=sH.indexOf("@");
 				if (k!=-1 && k<y)
-				{	//Il pacchetto è di qualcun altro...devo fare il forwarding. Tolgo il primo erraAddress e ne faccio il forwarding
+				{	//Il pacchetto e' di qualcun altro...devo fare il forwarding. Tolgo il primo erraAddress e ne faccio il forwarding
 					
-					String nextHop=sH.substring(0,sH.indexOf("#"));	//Questo è l'erraAddress a cui devo inviare il pacchetto...
+					String nextHop=sH.substring(0,sH.indexOf("#"));	//Questo e' l'erraAddress a cui devo inviare il pacchetto...
 					byte[] headlengthByte= new byte[4];			//Questi sono i 4 bytes che descrivono la lunghezza dell'header
 					
 					int newHLen=l-j-1;
@@ -533,7 +534,7 @@ public class erraClient
 				}
 				else
 				{
-					//Il pacchetto è mio e solamento mio (tessoooooro)
+					//Il pacchetto e' mio e solamento mio (tessoooooro)
 					//Estraggo dal mio pacchetto la porzione che riguarda il payload.
 					int dataSize=packet.length-l-4;
 					byte[] data=new byte[dataSize];
@@ -603,7 +604,7 @@ public class erraClient
 		}
 		catch(IOException e)
 		{
-			System.err.println("Il bootstrap non è più raggiungibile");
+			System.err.println("Il bootstrap non e' più raggiungibile");
 		}
 		
 	}
@@ -613,7 +614,7 @@ public class erraClient
 	
 	public static void showTopology()
 	{
-		//Questa è una funzione di supporto, mostra a video le informazioni sugli ERRA devices presenti
+		//Questa e' una funzione di supporto, mostra a video le informazioni sugli ERRA devices presenti
 		System.out.println("=======================================");
 		System.out.println(topology.size()+" nodi attivi");
 		for (Iterator<erraHost> i = topology.iterator(); i.hasNext();) 
@@ -633,16 +634,26 @@ public class erraClient
 		    if((int)file.length()==0)
 		    	return null;
 		    
-		    int packets=topology.size()-1;		//Questa è la base di partenza
+		    int packets=topology.size()-2;		//Questa e' la base di partenza
 		    
 		    if (topology.size()<=3)				//Se siamo in 3 o meno, esiste solo un percorso che posso fare da A a B, quindi spezzo in un solo pacchetto!!
 		    	packets=1;
-
+		  
+		    //Non vogliamo che, anche se ci sono diversi utenti nella rete, il file contenga un payload troppo piccolo
 		    while((int)file.length()/packets<MINIMUM_PAYLOAD && packets>1)
 		    {
-		    	packets--;	//Non vogliamo che, anche se ci sono diversi utenti nella rete, il file contenga un payload troppo piccolo
+		    	packets--;	
 		    }
 
+		    //Non vogliamo nemmeno jumbo packets!
+		    while((int)file.length()/packets>MAX_PAYLOAD)
+		    {
+		    	packets++;	
+		    }
+
+		    
+		    
+		    
 		    int packets_length=(int)file.length()/packets;
 		    int residual_pck=0;
 		 
@@ -668,7 +679,7 @@ public class erraClient
 		      		for(int i=0;i<packets;i++)
 		      		{   byte[] data;
 		      		
-		      			if (i==packets-1 && packets>1)
+		      			if (i==packets-1 && residual_pck!=0)
 		      			{
 		      				data= new byte[residual_pck];
 		      				input.read(data,0,residual_pck);
@@ -696,14 +707,14 @@ public class erraClient
 		      			headlengthByte=ByteBuffer.allocate(4).putInt(newheader.length).array();		//Questi sono 4 bytes che esprimono la porzione di pacchetto destinata all'header
 		      			
 		      			byte[] packet=new byte[4+newheader.length+data.length];				//LunghezzaHeader+Routing+Dati
-		      			System.arraycopy(headlengthByte, 0, packet, 0, 4);					//Copio il numero di bytes di cui è composto l'header
+		      			System.arraycopy(headlengthByte, 0, packet, 0, 4);					//Copio il numero di bytes di cui e' composto l'header
 		      			System.arraycopy(newheader, 0, packet, 4, newheader.length);		//Copio l'header
 		      			System.arraycopy(data, 0, packet, 4+newheader.length, data.length);
 		      			pcks.add(packet);
 		      		}
 		      }
 		      finally 
-		      {	System.out.println("finished: "+(int)file.length()+" bytes successfully read. The file will be splitted into "+packets+" packets.");
+		      {	System.out.println("finished: "+(int)file.length()+" bytes successfully read.\nThe file will be splitted into "+packets+" packets.");
 		    	input.close();
 		      }
 		    }
@@ -726,7 +737,7 @@ public class erraClient
 		
 		if (topology.size()<=1)
 		{
-			System.out.println("Per inviare un file è necessario che nella rete vi sia almeno un altro erraHost oltre a te!");
+			System.out.println("Per inviare un file e' necessario che nella rete vi sia almeno un altro erraHost oltre a te!");
 			return;
 		}
 		
@@ -736,14 +747,18 @@ public class erraClient
 		if (r == JFileChooser.APPROVE_OPTION) 
 		{
 			String path=chooser.getSelectedFile().getPath();
-			System.out.println("Inserire l'erra host a cui è destinato il file specificato tra i seguenti.");
+			System.out.println("Inserire l'erra host a cui e' destinato il file specificato.");
+			String elenco="";
 			for (Iterator<erraHost> i = topology.iterator(); i.hasNext();) 
 			{
 			    erraHost element = (erraHost)(i.next());
 			    if (!(element.erraAddress.equals(ERRA_ADDRESS)))
-			    System.out.print(element.erraAddress+", ");
+			    if (elenco.equals(""))
+			    {elenco=element.erraAddress;}
+			    else
+			    {elenco+=", "+element.erraAddress;}
 			}
-			
+			System.out.println(elenco);
 			String erraDest="";
 			boolean valid=false;
 			while (!valid)
@@ -762,7 +777,7 @@ public class erraClient
 						erraHost element = (erraHost)(i.next());
 						if (input.equals(element.erraAddress)){valid=true;break;}
 					}
-					if (!(valid)){System.err.println("L'erra address specificato non è valido, riprovare.");}
+					if (!(valid)){System.err.println("L'erra address specificato non e' valido, riprovare.");}
 					if (valid)erraDest=input;
 				}
 			}
@@ -787,9 +802,9 @@ public class erraClient
       			
       			System.arraycopy(packet, 4, H, 0, l);
       			
-      			String sH=new String(H, "US-ASCII");			//Questa è la stringa che codifica il mio header
+      			String sH=new String(H, "US-ASCII");			//Questa e' la stringa che codifica il mio header
       			System.out.println(sH);
-      			String nextHop=sH.substring(0,sH.indexOf("#"));	//Questo è l'erraAddress a cui devo inviare il pacchetto...
+      			String nextHop=sH.substring(0,sH.indexOf("#"));	//Questo e' l'erraAddress a cui devo inviare il pacchetto...
       			String nextIP=getIP(nextHop);
       			try
       			{	
@@ -799,11 +814,11 @@ public class erraClient
           			DataOutputStream dos = new DataOutputStream(out);
           			dos.write(packet, 0, packet.length);
           			TCPClientSocket.close(); 
-          			System.out.println("Il pacchetto "+(i++)+"/"+pcks.size()+" all'erraHost "+nextHop+" all'indirizzo IP "+nextIP+" è stato inviato");	
+          			System.out.println("Il pacchetto "+(i++)+"/"+pcks.size()+" all'erraHost "+nextHop+" all'indirizzo IP "+nextIP+" e' stato inviato");	
       			}
       			catch (IOException e)
       			{	
-      				System.err.println("Il pacchetto "+(i++)+"/"+pcks.size()+" all'erraHost "+nextHop+" all'indirizzo IP "+nextIP+" non è stato recapitato");	
+      				System.err.println("Il pacchetto "+(i++)+"/"+pcks.size()+" all'erraHost "+nextHop+" all'indirizzo IP "+nextIP+" non e' stato recapitato");	
       			}
 			}
 			System.out.println("File processing completed");
@@ -827,25 +842,8 @@ public class erraClient
 		return "";
 	}
 
-	
-	
-	public static void main(String[] args) throws InterruptedException, IOException
-	{	
-		
-		//System.out.println("Tentativo di connessione al nodo BOOTSTRAP...");
-		/*boolean esito=initializeErra();		
-		if (!esito)
-		{
-			System.err.println("Si è manifestato un errore nella connessione al nodo di BOOTSTRAP...l'applicazione verrà chiusa.");
-			return;
-		}*/
-
-
-		topology.add(new erraHost("192.168.0.2","40"));
-		topology.add(new erraHost("192.168.0.5","41"));
-		topology.add(new erraHost("192.168.0.6","42"));
-		topology.add(new erraHost("192.168.0.7","43"));
-		//Ora devo solo dalla topologia prendermi il mio erraAddress!!
+	public static String getMyIP()
+	{
 		String ipAddress = null;
 		Enumeration<NetworkInterface> net = null;
 		try {
@@ -872,6 +870,30 @@ public class erraClient
 				}
 			}
 		}
+		return ipAddress;
+	}
+	
+	
+	public static void main(String[] args) throws InterruptedException, IOException
+	{	
+		
+		//System.out.println("Tentativo di connessione al nodo BOOTSTRAP...");
+		/*boolean esito=initializeErra();		
+		if (!esito)
+		{
+			System.err.println("Si e' manifestato un errore nella connessione al nodo di BOOTSTRAP...l'applicazione verrà chiusa.");
+			return;
+		}*/
+
+
+		topology.add(new erraHost("192.168.0.2","40"));
+		topology.add(new erraHost("192.168.0.5","41"));
+		
+		//topology.add(new erraHost("192.168.0.6","42"));
+		//topology.add(new erraHost("192.168.0.7","43"));
+		//Ora devo solo dalla topologia prendermi il mio erraAddress!!
+		
+		String ipAddress=getMyIP();
 
 		if(ERRA_ADDRESS.equals(""))
 		{
