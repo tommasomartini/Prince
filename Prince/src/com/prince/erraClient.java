@@ -155,7 +155,6 @@ public class erraClient
 			boolean esito=false;
 			file t=null;
 			
-			
 			if (fileList==null)				//Nessun file è presente, significa che tutti i file sono stati scritti e questa è la primissima parte di un file che richevo
 			{
 				t=new file(filename,parts);
