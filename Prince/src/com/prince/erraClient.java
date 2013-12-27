@@ -87,7 +87,7 @@ public class erraClient
 		{
 			filePart t=new filePart(SN,data);
 			parts.add(t);
-			System.out.println("Ricevuto e archiviato frammento con SN "+SN+ " appartenente al file "+fileName);
+			System.out.println("Ricevuto e archiviato frammento con SN "+SN+ " appartenente al file "+fileName+". Dati ricevuti: "+data.length);
 			if (parts.size()==packets)
 			{
 				//Ora che ho tutti gli elementi estraggo, riordino, scrivo!
@@ -501,9 +501,13 @@ public class erraClient
 				int y=sH.indexOf("@");
 				if (k!=-1 && k<y)
 				{	//Il pacchetto è di qualcun altro...devo fare il forwarding. Tolgo il primo erraAddress e ne faccio il forwarding
+					
 					String nextHop=sH.substring(0,sH.indexOf("#"));	//Questo è l'erraAddress a cui devo inviare il pacchetto...
 					byte[] headlengthByte= new byte[4];			//Questi sono i 4 bytes che descrivono la lunghezza dell'header
-					headlengthByte=ByteBuffer.allocate(4).putInt(packet.length-j-5).array();		
+					
+					int newHLen=l-j-1;
+					
+					headlengthByte=ByteBuffer.allocate(4).putInt(newHLen).array();		
 
 					byte[] forwardPacket=new byte[packet.length-nextHop.length()-1];				
 
@@ -838,7 +842,9 @@ public class erraClient
 
 
 		topology.add(new erraHost("192.168.0.2","40"));
-		topology.add(new erraHost("192.168.0.7","41"));
+		topology.add(new erraHost("192.168.0.5","41"));
+		topology.add(new erraHost("192.168.0.6","42"));
+		topology.add(new erraHost("192.168.0.7","43"));
 		//Ora devo solo dalla topologia prendermi il mio erraAddress!!
 		String ipAddress = null;
 		Enumeration<NetworkInterface> net = null;
