@@ -18,7 +18,7 @@ public class ClientTest {
 	}
 
 	public ClientTest() {
-		System.out.println("Apertura connessione…");
+		System.out.println("Apertura connessione");
 //		try {
 //			socket = new Socket(ADDRESS, PORT);
 ////			BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));	//legge il messaggio dal server
