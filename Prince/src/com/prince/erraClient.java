@@ -41,7 +41,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ItemListener;
 
-public class erraClient 
+public class ErraClient 
 {
 	public static int CONNECTION_TIMEOUT=5000;		
 
