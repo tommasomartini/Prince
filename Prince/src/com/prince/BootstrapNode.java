@@ -54,11 +54,10 @@ public class BootstrapNode {
 		STATE_SPREADING_CHANGES,
 		STATE_SHUTTING_DOWN
 	}
-
 	private static BootstrapState currentState;
 	
 	private ErraNode me;
-	private static int node_id = 0;	// increasing ID assigned to every new node joining the network
+	private static int newNodeID = 0;	// increasing ID assigned to every new node joining the network
 
 	//	ServerSockets
 	private ServerSocket joinedNodeListener;
@@ -125,12 +124,12 @@ public class BootstrapNode {
 				System.out.print("Insert password to shutdown the current Bootsrap Node: ");
 				String password = (new Scanner(System.in)).nextLine();
 				if (password.equalsIgnoreCase(BOOTSTRAP_PASSWORD)) {
-					System.out.println("Correct password.\nThe Bootstrap Node will be disconnected...");
-					shutdown();	// TODO prepare for closing...
+					System.out.println("Correct password.\nThis Bootstrap Node will be disconnected...");
+					shutdown();
 					System.out.println("...bye!");
 					System.exit(0);
 				} else {
-					System.out.println("Wrong password");
+					System.out.println("Wrong password!");
 				}
 			} else if (msgFromKeyboard.equalsIgnoreCase("net")) {
 				showNetworkTable();
@@ -300,12 +299,11 @@ public class BootstrapNode {
 				if (stillMissingNodes) {
 					for (Iterator<Integer> iterator = missingNodes.iterator(); iterator.hasNext();) {
 						Integer missingNodeID = (Integer)iterator.next();
-//						rollCallRegister.put(missingNodeID, SubjectState.SUBJECT_STATE_DEAD);
-						removeNodeFromRegister(missingNodeID);	//TODO choose what to do!
-						ErraNode removedNode = removeErraNode(missingNodeID);
-						spreadNetworkChanges(removedNode, false);
+						removeErraNode(missingNodeID);
 						System.out.println("Perso nodo " + missingNodeID + "!");
 					}
+					ErraNode[] deadNodes = (ErraNode[])missingNodes.toArray();
+					spreadNetworkChanges(deadNodes, false);
 				}
 
 				currentState = BootstrapState.STATE_RUNNING;
@@ -356,8 +354,8 @@ public class BootstrapNode {
 				if (ipString.length() <= 0) {
 					//	TODO lanciare un'eccezione perche' ho ricevuto un indirizzo vuoto!
 				} else {
-					int currentId = node_id++;
-					ErraNode node = new ErraNode(currentId, ipString);
+					int currentId = newNodeID++;
+					ErraNode node = new ErraNode(currentId, ipString, NodeType.UNKNOWN, NodeState.NODE_STATE_ALIVE);
 					while (currentState != BootstrapState.STATE_RUNNING) {
 						try {
 							sleep(DELAY_WAIT_FOR_CALLING_TO_FINISH);
@@ -365,9 +363,8 @@ public class BootstrapNode {
 							e.printStackTrace();
 						}
 					}
-					spreadNetworkChanges(node, true);
+					spreadNetworkChanges(new ErraNode[]{node}, true);
 					addErraNode(node);
-					addNodeToRegister(currentId);
 					System.out.println("Inserito nodo con id " + currentId);
 
 					try {
@@ -418,12 +415,9 @@ public class BootstrapNode {
 				ErraNode removedNode = removeErraNode(identifier);
 				if (removedNode != null) {
 					System.out.println("Nodo " + identifier + " rimosso dalla rete");
-//					spreadNetworkChanges(removedNode, false);
-					removeNodeFromRegister(identifier);
-					//rollCallRegister.put(identifier, SUBJECT_STATE_DEAD);
+					spreadNetworkChanges(new ErraNode[]{removedNode}, false);
 				} else {
 					System.out.println("Il nodo " + identifier + " non e' presente nella rete");
-					//					TODO devo avvertire tutti i nodi che il nodo corrente ha lasciato la rete
 				}
 			}
 		}	
@@ -450,35 +444,22 @@ public class BootstrapNode {
 				String[] msgValues = msgFromNode.split("@");
 				int identifier = Integer.parseInt(msgValues[1]);
 				System.out.println("(NotifiedAliveNodeThread) Il suddito " + identifier + " ha risposto che e' vivo!");
-				addNodeToRegister(identifier);
+				updateRegister(identifier, NodeState.NODE_STATE_ALIVE);
 			}
 		}
 	}	// NotifiedAliveNodeThread
-
+	
 	/*
 	 * ****************************************************************************
 	 * END THREADS
 	 */
 
 	private void populateForTesting() {
-		ErraNode node1 = new ErraNode(18, "127.0.0.1");
-		ErraNode node2 = new ErraNode(63, "127.0.0.2");
-		ErraNode node3 = new ErraNode(92, "127.0.0.3");
-		ErraNode node4 = new ErraNode(99, "127.0.0.4");
-		ErraNode node5 = new ErraNode(13, "127.0.0.5");
-		ErraNode node6 = new ErraNode(43, "127.0.0.6");
-		nodes.put(18, node1);
-		rollCallRegister.put(18, NodeState.NODE_STATE_ALIVE);
-		nodes.put(63, node2);
-		rollCallRegister.put(63, NodeState.NODE_STATE_ALIVE);
-		nodes.put(92, node3);
-		rollCallRegister.put(92, NodeState.NODE_STATE_ALIVE);
-		nodes.put(99, node4);
-		rollCallRegister.put(99, NodeState.NODE_STATE_ALIVE);
-		nodes.put(13, node5);
-		rollCallRegister.put(13, NodeState.NODE_STATE_ALIVE);
-		nodes.put(43, node6);
-		rollCallRegister.put(43, NodeState.NODE_STATE_ALIVE);
+		int numOfNodes = 20;
+		for (int i = 0; i < numOfNodes; i++) {
+			ErraNode node = new ErraNode(newNodeID++, "127.0.0." + String.valueOf(new Random().nextInt(255)), NodeType.NODE_TYPE_SUBJECT, NodeState.NODE_STATE_ALIVE);
+			nodes.put(node.getID(), node);
+		}
 	}
 	
 //	W@erraid@numeronodiattivinellarete@ip#erraid%ip#erraid%ip#erraid%...%
@@ -497,6 +478,11 @@ public class BootstrapNode {
 	}
 	
 	private boolean shutdown() {
+		while (currentState != BootstrapState.STATE_RUNNING) {
+		}
+		currentState = BootstrapState.STATE_SHUTTING_DOWN;
+		// TODO avverto gli altri principi (e gli altri sudditi)
+		System.out.println("...(closing operations)...");
 		return true;
 	}
 
@@ -505,22 +491,19 @@ public class BootstrapNode {
 	 */	
 	private synchronized void addErraNode(ErraNode erraNode) {
 		nodes.put(erraNode.getID(), erraNode);
-//		rollCallRegister.put(erraNode.getID(), SubjectState.SUBJECT_STATE_ALIVE);
+		rollCallRegister.put(erraNode.getID(), NodeState.NODE_STATE_ALIVE);	// update rollCallRegister too
 	}
 
 	private synchronized ErraNode removeErraNode(int erraNodeID) {
+		rollCallRegister.remove(erraNodeID);
 		return nodes.remove(erraNodeID);
 	}
 
-	private synchronized void addNodeToRegister(int erraNodeID) {
-		rollCallRegister.put(erraNodeID, NodeState.NODE_STATE_ALIVE);
-	}
-
-	private synchronized NodeState removeNodeFromRegister(int erraNodeID) {
-		return rollCallRegister.remove(erraNodeID);
+	private synchronized void updateRegister(int erraNodeID, NodeState nodeState) {
+		rollCallRegister.put(erraNodeID, nodeState);
 	}
 	
-	private synchronized void spreadNetworkChanges(ErraNode changedNode, boolean added) {
+	private synchronized void spreadNetworkChanges(ErraNode[] changedNodes, boolean added) {
 		currentState = BootstrapState.STATE_SPREADING_CHANGES;
 		String msg = "T@";
 		if (added) {
@@ -528,7 +511,10 @@ public class BootstrapNode {
 		} else {
 			msg += "-";
 		}
-		msg += changedNode.getID() + "#" + changedNode.getIP_ADDRESS();
+		for (int i = 0; i < changedNodes.length; i++) {
+			ErraNode changedNode = changedNodes[i];
+			msg += changedNode.getID() + "#" + changedNode.getIP_ADDRESS() + "%";
+		}
 		for(Map.Entry<Integer, ErraNode> entry : nodes.entrySet()) {
 			ErraNode currentNode = entry.getValue();
 			try {

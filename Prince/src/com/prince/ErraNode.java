@@ -21,7 +21,7 @@ public class ErraNode {
 	private final int ID;
 	private final String IP_ADDRESS;
 	private final Date joinTime;
-	private final NodeType nodeType;
+	private NodeType nodeType;
 	private NodeState nodeState;
 
 	public ErraNode(int id, String ip, NodeType nodeType, NodeState nodeState) {
@@ -62,5 +62,9 @@ public class ErraNode {
 
 	public void setNodeState(NodeState nodeState) {
 		this.nodeState = nodeState;
+	}
+
+	public void setNodeType(NodeType nodeType) {
+		this.nodeType = nodeType;
 	}
 }
