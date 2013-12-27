@@ -17,6 +17,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Scanner;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -38,11 +39,14 @@ public class BootstrapNode {
 	private static final long PERIOD_ASK_FOR_ALIVE_AGAIN = 2000;
 	private static final int TIMES_TO_ASK_AGAIN = 3;
 	private static final long DELAY_WAIT_FOR_CALLING_TO_FINISH = 1000;	// if I have to update the tables and the Bootstrap is not on "running" mode I'll wait for this time before attempting again to access tables
-
+	
+	private static final String BOOTSTRAP_PASSWORD = "lupo";
+	
 	//	States
 	private enum BootstrapState {
 		STATE_RUNNING,
-		STATE_ROLL_CALLING
+		STATE_ROLL_CALLING,
+		STATE_SPREADING_CHANGES
 	}
 
 	//	Subject states ("stati del suddito")
@@ -73,6 +77,8 @@ public class BootstrapNode {
 	private Map<Integer, ErraNode> nodes;
 	private Map<Integer, SubjectState> rollCallRegister;	// "registro per fare l'appello"
 	
+	private NodeViewer nodeViewer;
+	
 	public class ErraNode {
 
 		private final int ID;
@@ -96,7 +102,7 @@ public class BootstrapNode {
 		nodes = new HashMap<Integer, BootstrapNode.ErraNode>();
 		rollCallRegister = new HashMap<Integer, SubjectState>();
 
-//		populateForTesting();	// TODO remove me, just for testing
+		populateForTesting();	// TODO remove me, just for testing
 
 		currentState = BootstrapState.STATE_RUNNING;
 		
@@ -117,6 +123,30 @@ public class BootstrapNode {
 		Timer timer = new Timer();
 		TimerTask task = new AliveAskerTask();
 		timer.schedule(task, DELAY_ASK_FOR_ALIVE, PERIOD_ASK_FOR_ALIVE);
+		
+		String msgFromKeyboard;
+		while (true) {
+			System.out.print("input$: ");
+			Scanner scanner = new Scanner(System.in);
+			msgFromKeyboard = scanner.nextLine();
+			if (msgFromKeyboard.equalsIgnoreCase("shutdown")) {
+				System.out.print("Insert password to shutdown the current Bootsrap Node: ");
+				String password = (new Scanner(System.in)).nextLine();
+				if (password.equalsIgnoreCase(BOOTSTRAP_PASSWORD)) {
+					System.out.println("Correct password.\nThe Bootstrap Node will be disconnected...");
+					shutdown();
+					// TODO prepare for closing...
+					System.out.println("...bye!");
+					System.exit(0);
+				} else {
+					System.out.println("Wrong password");
+				}
+			} else if (msgFromKeyboard.equalsIgnoreCase("net")) {
+				showNetworkTable();
+			} else {
+				System.out.println("Echo-> " + msgFromKeyboard);
+			}
+		}
 	}
 
 	private class AliveAskerTask extends TimerTask {
@@ -439,11 +469,26 @@ public class BootstrapNode {
 	 * END THREADS
 	 */
 
-//	private void populateForTesting() {
-//		ErraNode node = new ErraNode(18, "127.0.0.1");
-//		nodes.put(18, node);
-//		rollCallRegister.put(18, SubjectState.SUBJECT_STATE_ALIVE);
-//	}
+	private void populateForTesting() {
+		ErraNode node1 = new ErraNode(18, "127.0.0.1");
+		ErraNode node2 = new ErraNode(63, "127.0.0.2");
+		ErraNode node3 = new ErraNode(92, "127.0.0.3");
+		ErraNode node4 = new ErraNode(99, "127.0.0.4");
+		ErraNode node5 = new ErraNode(13, "127.0.0.5");
+		ErraNode node6 = new ErraNode(43, "127.0.0.6");
+		nodes.put(18, node1);
+		rollCallRegister.put(18, SubjectState.SUBJECT_STATE_ALIVE);
+		nodes.put(63, node2);
+		rollCallRegister.put(63, SubjectState.SUBJECT_STATE_ALIVE);
+		nodes.put(92, node3);
+		rollCallRegister.put(92, SubjectState.SUBJECT_STATE_ALIVE);
+		nodes.put(99, node4);
+		rollCallRegister.put(99, SubjectState.SUBJECT_STATE_ALIVE);
+		nodes.put(13, node5);
+		rollCallRegister.put(13, SubjectState.SUBJECT_STATE_ALIVE);
+		nodes.put(43, node6);
+		rollCallRegister.put(43, SubjectState.SUBJECT_STATE_ALIVE);
+	}
 	
 //	W@erraid@numeronodiattivinellarete@ip#erraid%ip#erraid%ip#erraid%...%
 	private String getNodesMapToString() {
@@ -453,6 +498,15 @@ public class BootstrapNode {
 			mapToString += String.valueOf(currentNode.getID()) + "#" + currentNode.getIP_ADDRESS() + "%";
 		}
 		return mapToString;
+	}
+	
+	private void showNetworkTable() {
+		nodeViewer = new NodeViewer();
+		nodeViewer.showNetwork(nodes);
+	}
+	
+	private boolean shutdown() {
+		return true;
 	}
 
 	/*
