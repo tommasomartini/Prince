@@ -21,6 +21,9 @@ import java.util.Scanner;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import com.prince.ErraNode.NodeState;
+import com.prince.ErraNode.NodeType;
+
 /* Database:
  * prova
 nome: erra
@@ -32,6 +35,8 @@ C:\Users\Mattia\Desktop\Google Chrome.lnk
  */
 
 public class BootstrapNode {
+	
+	private boolean DEBUG = true;
 	
 	//	Times and periods
 	private static final long DELAY_ASK_FOR_ALIVE = 1000;
@@ -46,20 +51,13 @@ public class BootstrapNode {
 	private enum BootstrapState {
 		STATE_RUNNING,
 		STATE_ROLL_CALLING,
-		STATE_SPREADING_CHANGES
-	}
-
-	//	Subject states ("stati del suddito")
-	private enum SubjectState {
-		SUBJECT_STATE_MISSING, 
-		SUBJECT_STATE_ALIVE,
-		SUBJECT_STATE_DEAD
+		STATE_SPREADING_CHANGES,
+		STATE_SHUTTING_DOWN
 	}
 
 	private static BootstrapState currentState;
 	
-	private InetAddress myIPAddress;
-
+	private ErraNode me;
 	private static int node_id = 0;	// increasing ID assigned to every new node joining the network
 
 	//	ServerSockets
@@ -77,20 +75,24 @@ public class BootstrapNode {
 
 	//	Storage and registers
 	private Map<Integer, ErraNode> nodes;
-	private Map<Integer, SubjectState> rollCallRegister;	// "registro per fare l'appello"
+	private Map<Integer, ErraNode.NodeState> rollCallRegister;	// "registro per fare l'appello"
 	
 	private NodeViewer nodeViewer;
 
 	private BootstrapNode() {
 		try {
-			myIPAddress = InetAddress.getLocalHost();
+			String myIPAddress = InetAddress.getLocalHost().getHostAddress();
+			int myErraID = new Random().nextInt(1000);
+			me = new ErraNode(myErraID, myIPAddress, NodeType.NODE_TYPE_PRINCE, NodeState.NODE_STATE_ALIVE);
 		} catch (UnknownHostException e) {
 			e.printStackTrace();
 		}	
 		nodes = new HashMap<Integer, ErraNode>();
-		rollCallRegister = new HashMap<Integer, SubjectState>();
+		rollCallRegister = new HashMap<Integer, NodeState>();
 
 		populateForTesting();	// TODO remove me, just for testing
+		
+		nodeViewer = new NodeViewer();
 
 		currentState = BootstrapState.STATE_RUNNING;
 		
@@ -110,7 +112,9 @@ public class BootstrapNode {
 		aliveNodeListenerThread.start();
 		Timer timer = new Timer();
 		TimerTask task = new AliveAskerTask();
-		timer.schedule(task, DELAY_ASK_FOR_ALIVE, PERIOD_ASK_FOR_ALIVE);
+		if (!DEBUG) {
+			timer.schedule(task, DELAY_ASK_FOR_ALIVE, PERIOD_ASK_FOR_ALIVE);
+		}
 		
 		String msgFromKeyboard;
 		while (true) {
@@ -251,8 +255,8 @@ public class BootstrapNode {
 			super.run();
 			System.out.println("Nuovo AliveAskerThread con id: " + threadId);
 			currentState = BootstrapState.STATE_ROLL_CALLING;
-			for (Map.Entry<Integer, SubjectState> entry : rollCallRegister.entrySet()) {
-				entry.setValue(SubjectState.SUBJECT_STATE_MISSING);
+			for (Map.Entry<Integer, NodeState> entry : rollCallRegister.entrySet()) {
+				entry.setValue(NodeState.NODE_STATE_MISSING);
 			}
 			try {
 				DatagramSocket datagramSocket = new DatagramSocket(ErraNodePorts.PORT_BOOTSTRAP_ASK_ALIVE_NODES);
@@ -269,8 +273,8 @@ public class BootstrapNode {
 				List<Integer> missingNodes = new LinkedList<Integer>();
 				while (rollCallingCounter > 0 && stillMissingNodes) {
 					Thread.sleep(PERIOD_ASK_FOR_ALIVE_AGAIN);
-					for (Map.Entry<Integer, SubjectState> registerEntry : rollCallRegister.entrySet()) {
-						if (registerEntry.getValue() == SubjectState.SUBJECT_STATE_MISSING && !missingNodes.contains(registerEntry.getKey())) {
+					for (Map.Entry<Integer, NodeState> registerEntry : rollCallRegister.entrySet()) {
+						if (registerEntry.getValue() == NodeState.NODE_STATE_MISSING && !missingNodes.contains(registerEntry.getKey())) {
 							missingNodes.add(registerEntry.getKey());
 						}
 					}
@@ -464,32 +468,32 @@ public class BootstrapNode {
 		ErraNode node5 = new ErraNode(13, "127.0.0.5");
 		ErraNode node6 = new ErraNode(43, "127.0.0.6");
 		nodes.put(18, node1);
-		rollCallRegister.put(18, SubjectState.SUBJECT_STATE_ALIVE);
+		rollCallRegister.put(18, NodeState.NODE_STATE_ALIVE);
 		nodes.put(63, node2);
-		rollCallRegister.put(63, SubjectState.SUBJECT_STATE_ALIVE);
+		rollCallRegister.put(63, NodeState.NODE_STATE_ALIVE);
 		nodes.put(92, node3);
-		rollCallRegister.put(92, SubjectState.SUBJECT_STATE_ALIVE);
+		rollCallRegister.put(92, NodeState.NODE_STATE_ALIVE);
 		nodes.put(99, node4);
-		rollCallRegister.put(99, SubjectState.SUBJECT_STATE_ALIVE);
+		rollCallRegister.put(99, NodeState.NODE_STATE_ALIVE);
 		nodes.put(13, node5);
-		rollCallRegister.put(13, SubjectState.SUBJECT_STATE_ALIVE);
+		rollCallRegister.put(13, NodeState.NODE_STATE_ALIVE);
 		nodes.put(43, node6);
-		rollCallRegister.put(43, SubjectState.SUBJECT_STATE_ALIVE);
+		rollCallRegister.put(43, NodeState.NODE_STATE_ALIVE);
 	}
 	
 //	W@erraid@numeronodiattivinellarete@ip#erraid%ip#erraid%ip#erraid%...%
 	private String getNodesMapToString() {
-		String mapToString = String.valueOf(nodes.size()) + "@";
+		String mapToString = String.valueOf(nodes.size() + 1) + "@";
 		for(Map.Entry<Integer, ErraNode> entry : nodes.entrySet()) {
 			ErraNode currentNode = entry.getValue();
 			mapToString += String.valueOf(currentNode.getID()) + "#" + currentNode.getIP_ADDRESS() + "%";
 		}
+		mapToString += me.getIP_ADDRESS() + "#" + me.getID() + "%";	// add me
 		return mapToString;
 	}
 	
 	private void showNetworkTable() {
-		nodeViewer = new NodeViewer();
-		nodeViewer.showNetwork(nodes);
+		nodeViewer.showNetwork(nodes, me);
 	}
 	
 	private boolean shutdown() {
@@ -509,14 +513,15 @@ public class BootstrapNode {
 	}
 
 	private synchronized void addNodeToRegister(int erraNodeID) {
-		rollCallRegister.put(erraNodeID, SubjectState.SUBJECT_STATE_ALIVE);
+		rollCallRegister.put(erraNodeID, NodeState.NODE_STATE_ALIVE);
 	}
 
-	private synchronized SubjectState removeNodeFromRegister(int erraNodeID) {
+	private synchronized NodeState removeNodeFromRegister(int erraNodeID) {
 		return rollCallRegister.remove(erraNodeID);
 	}
 	
 	private synchronized void spreadNetworkChanges(ErraNode changedNode, boolean added) {
+		currentState = BootstrapState.STATE_SPREADING_CHANGES;
 		String msg = "T@";
 		if (added) {
 			msg += "+";
@@ -537,5 +542,6 @@ public class BootstrapNode {
 				e.printStackTrace();
 			}
 		}
+		currentState = BootstrapState.STATE_RUNNING;
 	}
 }
