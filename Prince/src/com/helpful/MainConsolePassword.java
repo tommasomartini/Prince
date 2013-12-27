@@ -1,5 +1,9 @@
 package com.helpful;
 
+/*
+ * nascondere password
+ */
+
 import java.io.Console;
 public class MainConsolePassword {
 

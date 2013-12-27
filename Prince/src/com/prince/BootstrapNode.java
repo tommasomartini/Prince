@@ -31,22 +31,21 @@ username: principe
 password: principe
 
 sudo apt-get install libmysql-java
-C:\Users\Mattia\Desktop\Google Chrome.lnk
  */
 
 public class BootstrapNode {
-	
-	private boolean DEBUG = true;
-	
+
+	private boolean DEBUG = false;
+
 	//	Times and periods
 	private static final long DELAY_ASK_FOR_ALIVE = 1000;
-	private static final long PERIOD_ASK_FOR_ALIVE = 10000;
+	private static final long PERIOD_ASK_FOR_ALIVE = 20000;
 	private static final long PERIOD_ASK_FOR_ALIVE_AGAIN = 2000;
 	private static final int TIMES_TO_ASK_AGAIN = 3;
 	private static final long DELAY_WAIT_FOR_CALLING_TO_FINISH = 1000;	// if I have to update the tables and the Bootstrap is not on "running" mode I'll wait for this time before attempting again to access tables
-	
+
 	private static final String BOOTSTRAP_PASSWORD = "lupo";
-	
+
 	//	States
 	private enum BootstrapState {
 		STATE_RUNNING,
@@ -55,7 +54,7 @@ public class BootstrapNode {
 		STATE_SHUTTING_DOWN
 	}
 	private static BootstrapState currentState;
-	
+
 	private ErraNode me;
 	private static int newNodeID = 0;	// increasing ID assigned to every new node joining the network
 
@@ -75,7 +74,7 @@ public class BootstrapNode {
 	//	Storage and registers
 	private Map<Integer, ErraNode> nodes;
 	private Map<Integer, ErraNode.NodeState> rollCallRegister;	// "registro per fare l'appello"
-	
+
 	private NodeViewer nodeViewer;
 
 	private BootstrapNode() {
@@ -89,12 +88,14 @@ public class BootstrapNode {
 		nodes = new HashMap<Integer, ErraNode>();
 		rollCallRegister = new HashMap<Integer, NodeState>();
 
-		populateForTesting();	// TODO remove me, just for testing
-		
+		if (DEBUG) {
+			populateForTesting();
+		}
+
 		nodeViewer = new NodeViewer();
 
 		currentState = BootstrapState.STATE_RUNNING;
-		
+
 		joinedNodeListenerThread = new JoinedNodeListenerThread();
 		departedNodeListenerThread = new DepartedNodeListenerThread();
 		aliveNodeListenerThread = new AliveNodeListenerThread();
@@ -114,7 +115,7 @@ public class BootstrapNode {
 		if (!DEBUG) {
 			timer.schedule(task, DELAY_ASK_FOR_ALIVE, PERIOD_ASK_FOR_ALIVE);
 		}
-		
+
 		String msgFromKeyboard;
 		while (true) {
 			System.out.print("input$: ");
@@ -297,17 +298,19 @@ public class BootstrapNode {
 				datagramSocket.close();
 
 				if (stillMissingNodes) {
+					ErraNode[] deadNodes = new ErraNode[missingNodes.size()];
+					int indexMissingNodes = 0;
 					for (Iterator<Integer> iterator = missingNodes.iterator(); iterator.hasNext();) {
 						Integer missingNodeID = (Integer)iterator.next();
-						removeErraNode(missingNodeID);
+						deadNodes[indexMissingNodes] = removeErraNode(missingNodeID);
 						System.out.println("Perso nodo " + missingNodeID + "!");
+						indexMissingNodes++;
 					}
-					ErraNode[] deadNodes = (ErraNode[])missingNodes.toArray();
 					spreadNetworkChanges(deadNodes, false);
 				}
 
 				currentState = BootstrapState.STATE_RUNNING;
-				
+
 			} catch (SocketException e) {
 				e.printStackTrace();
 			} catch (UnknownHostException e) {
@@ -317,7 +320,6 @@ public class BootstrapNode {
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
-
 		}
 	}	// AliveAskerThread
 
@@ -351,29 +353,24 @@ public class BootstrapNode {
 
 				InetAddress inetAddress = socket.getInetAddress();
 				String ipString = inetAddress.getHostAddress();
-				if (ipString.length() <= 0) {
-					//	TODO lanciare un'eccezione perche' ho ricevuto un indirizzo vuoto!
-				} else {
-					int currentId = newNodeID++;
-					ErraNode node = new ErraNode(currentId, ipString, NodeType.UNKNOWN, NodeState.NODE_STATE_ALIVE);
-					while (currentState != BootstrapState.STATE_RUNNING) {
-						try {
-							sleep(DELAY_WAIT_FOR_CALLING_TO_FINISH);
-						} catch (InterruptedException e) {
-							e.printStackTrace();
-						}
-					}
-					spreadNetworkChanges(new ErraNode[]{node}, true);
-					addErraNode(node);
-					System.out.println("Inserito nodo con id " + currentId);
-
+				int currentId = newNodeID++;
+				ErraNode node = new ErraNode(currentId, ipString, NodeType.UNKNOWN, NodeState.NODE_STATE_ALIVE);
+				while (currentState != BootstrapState.STATE_RUNNING) {
 					try {
-						PrintStream toNode = new PrintStream(socket.getOutputStream());
-						String table = "W@" + currentId + "@" + getNodesMapToString() + "\n";
-						toNode.println(table);
-					} catch (IOException e) {
+						sleep(DELAY_WAIT_FOR_CALLING_TO_FINISH);
+					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
+				}
+				spreadNetworkChanges(new ErraNode[]{node}, true);
+				addErraNode(node);
+				System.out.println("Inserito nodo con id " + currentId);	// TODO remove me
+				try {
+					PrintStream toNode = new PrintStream(socket.getOutputStream());
+					String table = "W@" + currentId + "@" + getNodesMapToString() + "\n";
+					toNode.println(table);
+				} catch (IOException e) {
+					e.printStackTrace();
 				}	
 			}
 		}	
@@ -399,9 +396,7 @@ public class BootstrapNode {
 				e.printStackTrace();
 			}
 			if (msgFromNode == null || msgFromNode.length() == 0 || !msgFromNode.substring(0, 1).equalsIgnoreCase("E")) {
-				// TODO lanciare un'eccezione perche' ho ricevuto un indirizzo vuoto!
 				System.out.println("Il messaggio del client che chiede di aggiungersi alla rete e' vuoto o diverso da \'J\'");
-				System.out.println(msgFromNode);
 			} else {
 				// messaggio nella forma E@erraid\n
 				int identifier = Integer.parseInt(msgFromNode.substring(2));
@@ -448,7 +443,7 @@ public class BootstrapNode {
 			}
 		}
 	}	// NotifiedAliveNodeThread
-	
+
 	/*
 	 * ****************************************************************************
 	 * END THREADS
@@ -459,10 +454,11 @@ public class BootstrapNode {
 		for (int i = 0; i < numOfNodes; i++) {
 			ErraNode node = new ErraNode(newNodeID++, "127.0.0." + String.valueOf(new Random().nextInt(255)), NodeType.NODE_TYPE_SUBJECT, NodeState.NODE_STATE_ALIVE);
 			nodes.put(node.getID(), node);
+			rollCallRegister.put(node.getID(), NodeState.NODE_STATE_ALIVE);
 		}
 	}
-	
-//	W@erraid@numeronodiattivinellarete@ip#erraid%ip#erraid%ip#erraid%...%
+
+	//	W@erraid@numeronodiattivinellarete@ip#erraid%ip#erraid%ip#erraid%...%
 	private String getNodesMapToString() {
 		String mapToString = String.valueOf(nodes.size() + 1) + "@";
 		for(Map.Entry<Integer, ErraNode> entry : nodes.entrySet()) {
@@ -472,11 +468,11 @@ public class BootstrapNode {
 		mapToString += me.getIP_ADDRESS() + "#" + me.getID() + "%";	// add me
 		return mapToString;
 	}
-	
+
 	private void showNetworkTable() {
 		nodeViewer.showNetwork(nodes, me);
 	}
-	
+
 	private boolean shutdown() {
 		while (currentState != BootstrapState.STATE_RUNNING) {
 		}
@@ -492,17 +488,20 @@ public class BootstrapNode {
 	private synchronized void addErraNode(ErraNode erraNode) {
 		nodes.put(erraNode.getID(), erraNode);
 		rollCallRegister.put(erraNode.getID(), NodeState.NODE_STATE_ALIVE);	// update rollCallRegister too
+		showNetworkTable();
 	}
 
 	private synchronized ErraNode removeErraNode(int erraNodeID) {
 		rollCallRegister.remove(erraNodeID);
-		return nodes.remove(erraNodeID);
+		ErraNode removedNode = nodes.remove(erraNodeID);
+		showNetworkTable();
+		return removedNode;
 	}
 
 	private synchronized void updateRegister(int erraNodeID, NodeState nodeState) {
 		rollCallRegister.put(erraNodeID, nodeState);
 	}
-	
+
 	private synchronized void spreadNetworkChanges(ErraNode[] changedNodes, boolean added) {
 		currentState = BootstrapState.STATE_SPREADING_CHANGES;
 		String msg = "T@";
