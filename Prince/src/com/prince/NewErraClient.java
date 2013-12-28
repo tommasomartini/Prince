@@ -214,10 +214,7 @@ public class NewErraClient
 		public erraHost(String IP,String Address){this.IP=IP;erraAddress=Address;}
 	}
 
-	//============== Questa lista contiene l'elenco di tutti i dispositivi erra attivi nella rete
-	
-	//public static List<erraHost> topology = new ArrayList<erraHost>();
-	
+
 	//Questa struttura contiene tutti i nodi attivi
 	public static Map<String, ErraNode> nodes;
 	
@@ -548,24 +545,6 @@ public class NewErraClient
 						System.err.println("Forwarding all'indirizzo "+nextIP+" fallito.");	
 					}
 				}
-				/*
-				else
-				{
-					//Il pacchetto e' mio e solamento mio (tessoooooro)
-					//Estraggo dal mio pacchetto la porzione che riguarda il payload.
-					int dataSize=packet.length-l-4;
-					byte[] data=new byte[dataSize];
-					System.arraycopy(packet, 4+l, data, 0,dataSize);	
-					FM.add(sH,data);	//Ficco dentro questo frammento all'interno della classe che si occupa di gestire il tutto
-				}
-				try
-				{
-					mySocket.close();
-				}
-				catch (IOException e)
-				{
-					
-				}*/
 				return;	
 			}
 			catch (ConnectException e)
@@ -590,10 +569,10 @@ public class NewErraClient
 		while(fromServer.length()>0)
 		{
 			//Estraggo host per host le informazioni
-			String IP=fromServer.substring(0,fromServer.indexOf('%'));
+			String IP=fromServer.substring(0,fromServer.indexOf('#'));
 			ErraNode e=new ErraNode(IP);
 			nodes.put(IP,e);
-			fromServer=fromServer.substring(fromServer.indexOf('%')+1);
+			fromServer=fromServer.substring(fromServer.indexOf('#')+1);
 		}
 	}
 
@@ -608,7 +587,7 @@ public class NewErraClient
 		try
 		{
 			TCPClientSocket.connect(new InetSocketAddress(BOOTSTRAP_ADDRESS, TCP_BOOTSTRAP_PORT_GOODBYE),CONNECTION_TIMEOUT);
-			String leaveMessage="E@"+ERRA_ADDRESS;
+			String leaveMessage="E@"+getMyIP();
 			DataOutputStream streamToServer = new DataOutputStream(TCPClientSocket.getOutputStream());
 			streamToServer.writeBytes(leaveMessage + '\n');	
 			TCPClientSocket.close(); 
@@ -930,7 +909,7 @@ public class NewErraClient
 	public static void main(String[] args) throws InterruptedException, IOException
 	{	
 		
-		boolean esito=initializeErra("127.0.0.1");
+		boolean esito=initializeErra("192.168.0.4");
 
 		if (!esito)
 		{

@@ -68,10 +68,8 @@ public class BootstrapNode extends NewErraClient {
 	private AliveAskerThread aliveAskerThread;
 
 	//	Storage and registers
-<<<<<<< HEAD
 	//private Map<String, ErraNode> nodes;
-=======
->>>>>>> 7925cda5700ed68fea8fc78c5b75880cf4c363c8
+
 	private Map<String, ErraNode.NodeState> rollCallRegister;	// "registro per fare l'appello"
 
 	private NodeViewer nodeViewer;
@@ -500,7 +498,7 @@ public class BootstrapNode extends NewErraClient {
 		String mapToString = "";
 		for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
 			ErraNode currentNode = entry.getValue();
-			mapToString += currentNode.getIPAddress();
+			mapToString += currentNode.getIPAddress()+ DELIMITER_MSG_PARAMS;
 		}
 		mapToString += me.getIPAddress() + DELIMITER_MSG_PARAMS;	// add me
 		return mapToString;
