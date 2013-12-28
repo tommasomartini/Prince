@@ -68,7 +68,10 @@ public class BootstrapNode extends NewErraClient {
 	private AliveAskerThread aliveAskerThread;
 
 	//	Storage and registers
+<<<<<<< HEAD
 	//private Map<String, ErraNode> nodes;
+=======
+>>>>>>> 7925cda5700ed68fea8fc78c5b75880cf4c363c8
 	private Map<String, ErraNode.NodeState> rollCallRegister;	// "registro per fare l'appello"
 
 	private NodeViewer nodeViewer;
@@ -472,8 +475,7 @@ public class BootstrapNode extends NewErraClient {
 			if (msgFromNode == null || msgFromNode.length() == 0 || !msgFromNode.substring(0, 1).equalsIgnoreCase("!")) {
 				System.err.println("Il messaggio del client che risponde di essere attivo e' vuoto o diverso da \'!\'");
 			} else {
-				String[] segments = msgFromNode.split(DELIMITER_AFTER_MSG_CHAR);
-				String ipAddress = segments[1];
+				String ipAddress = datagramPacket.getAddress().getHostAddress();
 				System.out.println("Subject " + ipAddress + " is alive!");
 				updateRegister(ipAddress, NodeState.NODE_STATE_ALIVE);
 			}
