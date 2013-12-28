@@ -25,7 +25,7 @@ import java.util.TimerTask;
 import com.prince.ErraNode.NodeState;
 import com.prince.ErraNode.NodeType;
 
-public class BootstrapNode extends erraClient {
+public class BootstrapNode extends NewErraClient {
 
 	private boolean DEBUG = false;
 	private boolean ACTIVE_ALIVE_RQST = true;
@@ -158,7 +158,7 @@ public class BootstrapNode extends erraClient {
 				aliveAskerThread = new AliveAskerThread();
 				aliveAskerThread.start();
 			} else {
-				System.out.println("No nodes in the network, I won't send any alive request");
+				System.out.println("No nodes in the network, I won't send any alive request.");
 			}
 		}
 	}

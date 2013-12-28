@@ -4,7 +4,7 @@ import java.util.Calendar;
 import java.util.Date;
 
 public class ErraNode {
-		
+	
 	public enum NodeType {
 		NODE_TYPE_PRINCE,
 		NODE_TYPE_SUBJECT,
