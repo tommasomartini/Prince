@@ -13,7 +13,7 @@ import java.net.UnknownHostException;
 
 public class ClientAliveTest {
 
-	private static final String BOOTSTRAP_ADDRESS = "192.168.1.223";
+	private static final String BOOTSTRAP_ADDRESS = "192.168.1.112";
 
 	private AnswerAliveThread answerAliveThread;
 	private InetAddress bootstrapInetAddress;

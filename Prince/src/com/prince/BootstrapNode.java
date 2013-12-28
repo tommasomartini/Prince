@@ -74,6 +74,15 @@ public class BootstrapNode extends NewErraClient {
 
 	private BootstrapNode() {
 		try {
+//			Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+//			while(networkInterfaces.hasMoreElements()) {
+//			    NetworkInterface networkInterface = (NetworkInterface)networkInterfaces.nextElement();
+//			    Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();
+//			    while(inetAddresses.hasMoreElements()) {
+//			        InetAddress currentInetAddress = (InetAddress)inetAddresses.nextElement();
+//			        System.out.println(networkInterface.getName() + currentInetAddress.getHostAddress());
+//			    }
+//			}
 			String myIPAddress = InetAddress.getLocalHost().getHostAddress();
 			me = new ErraNode(myIPAddress, NodeType.NODE_TYPE_PRINCE, NodeState.NODE_STATE_ALIVE);
 		} catch (UnknownHostException e) {

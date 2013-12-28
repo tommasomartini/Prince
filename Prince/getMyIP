@@ -1,0 +1,11 @@
+ottenere il proprio inirizzo IP
+
+Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+			while(networkInterfaces.hasMoreElements()) {
+			    NetworkInterface networkInterface = (NetworkInterface)networkInterfaces.nextElement();
+			    Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();
+			    while(inetAddresses.hasMoreElements()) {
+			        InetAddress currentInetAddress = (InetAddress)inetAddresses.nextElement();
+			        System.out.println(currentInetAddress.getHostAddress());
+			    }
+			}
