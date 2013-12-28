@@ -6,7 +6,6 @@ import java.text.SimpleDateFormat;
 import java.util.Map;
 
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
@@ -14,20 +13,22 @@ import javax.swing.JTable;
 public class NodeViewer extends JPanel {
 
 	private static final long serialVersionUID = 1L;
+	private static final String STRING_UNKNOWN = "unknown";
+	private static final String NO_OWNER = "no owner";
 
 	private String[] columnNames = {
-			"Erra ID",
 			"IP address",
+			"In my county",
+			"Bootstrap owner",
 			"Timestamp in",
 			"State",
 			"Role"
 	};
 
 	private SimpleDateFormat simpleDateFormat;
-	private Map<Integer, ErraNode> nodes;
+	private Map<String, ErraNode> nodes;
 	private JFrame frame;
 	private JTable table;
-	private JLabel label;
 	private JScrollPane scrollPane;
 
 	public NodeViewer() {
@@ -36,7 +37,7 @@ public class NodeViewer extends JPanel {
 		simpleDateFormat = new SimpleDateFormat("HH:mm:ss.SSSS yyyy-MM-dd");
 	}
 
-	public void showNetwork(Map<Integer, ErraNode> newNodes, ErraNode bootstrap) {
+	public void showNetwork(Map<String, ErraNode> newNodes, ErraNode bootstrap) {
 		nodes = newNodes;
 		if (frame != null && frame.isShowing()) {
 			frame.setVisible(false);
@@ -44,85 +45,91 @@ public class NodeViewer extends JPanel {
 		}
 		this.removeAll();
 		frame = new JFrame("ERRA Nodes");
-		if (!nodes.isEmpty()) {
-			String[][] data = new String[nodes.size() + 1][columnNames.length];
-			int rowIndex = 0;
-			for(Map.Entry<Integer, ErraNode> entry : nodes.entrySet()) {
-				ErraNode currentNode = entry.getValue();
-				data[rowIndex][0] = String.valueOf(currentNode.getID());
-				data[rowIndex][1] = currentNode.getIP_ADDRESS();	
-				data[rowIndex][2] = simpleDateFormat.format(currentNode.getJoinTime());
-				switch (currentNode.getNodeState()) {
-				case NODE_STATE_ALIVE:
-					data[rowIndex][3] = "alive";
-					break;
-				case NODE_STATE_MISSING:
-					data[rowIndex][3] = "missing";
-					break;
-				case NODE_STATE_DEAD:
-					data[rowIndex][3] = "dead";
-					break;
-				default:
-					data[rowIndex][3] = "unknown";
-					break;
-				}
-				switch (currentNode.getNodeType()) {
-				case NODE_TYPE_PRINCE:
-					data[rowIndex][4] = "prince";
-					break;
-				case NODE_TYPE_SUBJECT:
-					data[rowIndex][4] = "subject";
-					break;
-				default:
-					data[rowIndex][4] = "unknown";
-					break;
-				}
-				rowIndex++;
+		//		if (!nodes.isEmpty()) {
+		String[][] data = new String[nodes.size() + 1][columnNames.length];
+		int rowIndex = 0;
+		for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
+			ErraNode currentNode = entry.getValue();
+			data[rowIndex][0] = currentNode.getIPAddress();
+			if (currentNode.isInMyCounty()) {
+				data[rowIndex][1] = "Yes";
+			} else {
+				data[rowIndex][1] = "No";
 			}
-			data[rowIndex][0] = String.valueOf(bootstrap.getID());
-			data[rowIndex][1] = bootstrap.getIP_ADDRESS();	
-			data[rowIndex][2] = simpleDateFormat.format(bootstrap.getJoinTime());
-			switch (bootstrap.getNodeState()) {
+			if (currentNode.getBootstrapOwner() == null) {
+				data[rowIndex][2] = STRING_UNKNOWN;
+			} else {
+				data[rowIndex][2] = currentNode.getBootstrapOwner().getIPAddress();
+			}
+			data[rowIndex][3] = simpleDateFormat.format(currentNode.getJoinTime());
+			switch (currentNode.getNodeState()) {
 			case NODE_STATE_ALIVE:
-				data[rowIndex][3] = "alive";
+				data[rowIndex][4] = "alive";
 				break;
 			case NODE_STATE_MISSING:
-				data[rowIndex][3] = "missing";
+				data[rowIndex][4] = "missing";
 				break;
 			case NODE_STATE_DEAD:
-				data[rowIndex][3] = "dead";
-				break;
-			default:
-				data[rowIndex][3] = "unknown";
-				break;
-			}
-			switch (bootstrap.getNodeType()) {
-			case NODE_TYPE_PRINCE:
-				data[rowIndex][4] = "prince";
-				break;
-			case NODE_TYPE_SUBJECT:
-				data[rowIndex][4] = "subject";
+				data[rowIndex][4] = "dead";
 				break;
 			default:
 				data[rowIndex][4] = "unknown";
 				break;
 			}
-			table = new JTable(data, columnNames);
-			table.setPreferredScrollableViewportSize(new Dimension(1400, 200));
-			table.setFillsViewportHeight(true);
-			scrollPane = new JScrollPane(table);
-			add(scrollPane);
-			this.setOpaque(true);
-			frame.setContentPane(this);
-			frame.pack();
-			frame.setVisible(true);
-		} else {
-			label = new JLabel("no nodes");
-			add(label);
-			this.setOpaque(true);
-			frame.setContentPane(this);
-			frame.pack();
-			frame.setVisible(true);
+			switch (currentNode.getNodeType()) {
+			case NODE_TYPE_PRINCE:
+				data[rowIndex][5] = "prince";
+				break;
+			case NODE_TYPE_SUBJECT:
+				data[rowIndex][5] = "subject";
+				break;
+			default:
+				data[rowIndex][5] = "unknown";
+				break;
+			}
+			rowIndex++;
 		}
+		data[rowIndex][0] = bootstrap.getIPAddress();
+		if (bootstrap.isInMyCounty()) {
+			data[rowIndex][1] = "Yes";
+		} else {
+			data[rowIndex][1] = "No";
+		}
+		data[rowIndex][2] = NO_OWNER;
+		data[rowIndex][3] = simpleDateFormat.format(bootstrap.getJoinTime());
+		switch (bootstrap.getNodeState()) {
+		case NODE_STATE_ALIVE:
+			data[rowIndex][4] = "alive";
+			break;
+		case NODE_STATE_MISSING:
+			data[rowIndex][4] = "missing";
+			break;
+		case NODE_STATE_DEAD:
+			data[rowIndex][4] = "dead";
+			break;
+		default:
+			data[rowIndex][4] = "unknown";
+			break;
+		}
+		switch (bootstrap.getNodeType()) {
+		case NODE_TYPE_PRINCE:
+			data[rowIndex][5] = "prince";
+			break;
+		case NODE_TYPE_SUBJECT:
+			data[rowIndex][5] = "subject";
+			break;
+		default:
+			data[rowIndex][5] = "unknown";
+			break;
+		}
+		table = new JTable(data, columnNames);
+		table.setPreferredScrollableViewportSize(new Dimension(1400, 200));
+		table.setFillsViewportHeight(true);
+		scrollPane = new JScrollPane(table);
+		add(scrollPane);
+		this.setOpaque(true);
+		frame.setContentPane(this);
+		frame.pack();
+		frame.setVisible(true);
 	}
 }

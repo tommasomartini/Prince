@@ -10,7 +10,7 @@ public class ErraNodePorts {
 
 	//	Speaking ports
 	public static final int PORT_BOOTSTRAP_ASK_ALIVE_NODES = 8000;
-	public static final int PORT_BOOTSTRAP_REFRESH_TABLE = 8004;
+//	public static final int PORT_BOOTSTRAP_REFRESH_TABLE = 8004;
 	
 	//	Subject
 	// Listening ports
