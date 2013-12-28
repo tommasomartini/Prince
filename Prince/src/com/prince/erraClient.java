@@ -3,13 +3,14 @@ package com.prince;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
+
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -28,7 +29,7 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
+
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Iterator;
@@ -36,10 +37,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.swing.*;
-import java.awt.*;
-import java.awt.event.ItemListener;
 
 public class erraClient 
 {
@@ -58,7 +59,7 @@ public class erraClient
 	public static int TCP_BOOTSTRAP_PORT_WELCOME=8001;
 	public static int TCP_BOOTSTRAP_PORT_GOODBYE=8002;
 
-	public static String BOOTSTRAP_ADDRESS="87.4.245.122";
+	public static String BOOTSTRAP_ADDRESS="192.168.0.4";
 	public static String ERRA_ADDRESS="";
 	public static int TOTAL_DEVICES=3;
 	
@@ -95,7 +96,16 @@ public class erraClient
 				Collections.sort(parts);
 				OutputStream output = null;
 				try{
-					output = new BufferedOutputStream(new FileOutputStream(fileName));
+					
+					if (fileName.lastIndexOf("\\")!=-1)
+					{
+						String FN=fileName.substring(fileName.lastIndexOf("\\"));
+						FN=FN.replace("\\", "");
+						output = new BufferedOutputStream(new FileOutputStream(FN));
+					}
+					else
+						output = new BufferedOutputStream(new FileOutputStream(fileName));
+					
 					try
 					{
 						for (Iterator<filePart> i = parts.iterator(); i.hasNext();)
@@ -207,10 +217,11 @@ public class erraClient
 	//============== Questa lista contiene l'elenco di tutti i dispositivi erra attivi nella rete
 	
 	public static List<erraHost> topology = new ArrayList<erraHost>();
+
 	
 	//============== Funzione per inizializzare il sistema ERRA e scoprirne la topologia ======================
 
-	public static boolean initializeErra()
+	public static boolean initializeErra(String address)
 	{
 		try
 		{
@@ -218,10 +229,11 @@ public class erraClient
 			
 			try
 			{
-				TCPClientSocket.connect(new InetSocketAddress(BOOTSTRAP_ADDRESS,TCP_BOOTSTRAP_PORT_WELCOME),CONNECTION_TIMEOUT);
+				TCPClientSocket.connect(new InetSocketAddress(address,TCP_BOOTSTRAP_PORT_WELCOME),CONNECTION_TIMEOUT);
 			}
 			catch (IOException e)
-			{	System.err.println("Impossibile raggiungere il bootstrap node.");
+			{	System.err.println("Impossibile raggiungere il bootstrap node "+address);
+				TCPClientSocket.close();
 				return false;
 			}
 			System.out.println("...connessione avvenuta correttamente.");
@@ -237,7 +249,7 @@ public class erraClient
 			String fromServer="";
 			fromServer=streamFromServer.readLine();
 			TCPClientSocket.close(); 
-
+			
 			//Ora analizzo la stringa per ricostruire la topologia della rete
 			if (fromServer.charAt(0)=='W')
 			{
@@ -261,14 +273,13 @@ public class erraClient
 			e.printStackTrace();
 			return false;
 		}
-		showTopology();
 		return true;
 	}
 
 	
 	//============== Thread per la gestione delle risposte UDP al bootstrap ==========
 
-	private static class answerAliveRequest extends Thread
+	public static class answerAliveRequest extends Thread
 	{	
 		private static DatagramSocket UDP;
 		
@@ -291,7 +302,7 @@ public class erraClient
 					System.out.println("Il socket UDP che risponde ai ? e' stato chiuso.");
 					return;	//Questo chiude anche il thread
 				}
-				String message=new String(receivedPacket.getData());
+				String message=new String(receivedPacket.getData(),0,receivedPacket.getLength());
 				if (message.charAt(0)!='?')
 				{
 					System.err.println("Ho ricevuto sulla porta "+UDP_PORT_ALIVE+" un pacchetto che non riesco a decodificare.");
@@ -299,7 +310,6 @@ public class erraClient
 				}
 				else
 				{
-					System.out.println("Segnalo al bootstrap che sono attivo.");
 					String sentence = "!@"+ERRA_ADDRESS;
 					sendData = sentence.getBytes();
 					DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, receivedPacket.getAddress(), UDP_ALIVE_ANSWER);
@@ -325,7 +335,7 @@ public class erraClient
 
 	//============== Thread per ascoltare se il bootstrap comunica eventuali refresh sulla topologia ============
 
-	private static class refreshTopology extends Thread
+	public static class refreshTopology extends Thread
 	{ 	
 		private ServerSocket server;
 		private Socket s;
@@ -348,7 +358,7 @@ public class erraClient
 					BufferedReader streamFromServer = new BufferedReader(new InputStreamReader(s.getInputStream()));
 					String table="";
 					table=streamFromServer.readLine();
-					
+					s.close();
 					System.out.println("Aggiornamento sulla topologia di ERRA: "+table);
 					
 					if (table.charAt(0)=='R')		//    R@3@192.168.1.1#25%192.168.1.2#26%192.168.1.3#27%
@@ -357,34 +367,48 @@ public class erraClient
 						showTopology();
 					}
 					else if (table.charAt(0)=='T') //Significa che il bootstrap segnala la variazione su un singolo nodo, devo aggiornare solo una parte della topologia
-					{	table=table.substring(2);
+					{	
+						//T@-2#192.168.1.1%3#192.168.1.3
+						table=table.substring(2);
 						if (table.charAt(0)=='-')
 						{	
-							String brokenErraAddress=table;
-							for (Iterator<erraHost> i = topology.iterator(); i.hasNext();) 		//RImuovo dalla struttura il defunto nodo!
+							table=table.substring(1);
+							while (table.length()>0)
 							{
-							    erraHost element = (erraHost)(i.next());
-							    if(element.erraAddress.equals(brokenErraAddress))
-							    {
-							        i.remove();
-							    }
+								String ID=table.substring(0,table.indexOf("#"));
+								for (Iterator<erraHost> i = topology.iterator(); i.hasNext();) 		//RImuovo dalla struttura il defunto nodo!
+								{
+								    erraHost element = (erraHost)(i.next());
+								    if(element.erraAddress.equals(ID))
+								    {
+								        topology.remove(element);
+								        break;
+								    }
+								}	
+								table=table.substring(table.indexOf("%")+1);
 							}
 						}
 						else if (table.charAt(0)=='+')
 						{	
-							erraHost H=new erraHost(table.substring(0,table.indexOf("#")),table.substring(table.indexOf("#")+1));
-							//Prima di aggiungerlo alla mia topologia, verifico che non sia già presente!
-							boolean presente=false;
-							for (Iterator<erraHost> i = topology.iterator(); i.hasNext();) 		//RImuovo dalla struttura il defunto nodo!
+							table=table.substring(1);
+							while (table.length()>0)
 							{
-							    erraHost element = (erraHost)(i.next());
-							    if(element.erraAddress.equals(table.substring(table.indexOf("#")+1)))
-							    {
-							        presente=true;
-							        break;
-							    }
-							}	
-							if(!(presente))topology.add(H);
+								String ID=table.substring(0,table.indexOf("#"));
+								String IP=table.substring(table.indexOf("#")+1,table.indexOf("%"));
+								erraHost H=new erraHost(IP,ID);
+								boolean presente=false;
+								for (Iterator<erraHost> i = topology.iterator(); i.hasNext();) 		//RImuovo dalla struttura il defunto nodo!
+								{
+								    erraHost element = (erraHost)(i.next());
+								    if(element.erraAddress.equals(table.substring(table.indexOf("#")+1)))
+								    {
+								        presente=true;
+								        break;
+								    }
+								}	
+								if(!(presente))topology.add(H);
+								table=table.substring(table.indexOf("%")+1);
+							}
 						}
 						showTopology();
 					}
@@ -416,12 +440,13 @@ public class erraClient
 			server.close();
 				
 		}
+	
 	}
 
 
 	//Questo thread ascolta sulla porta 7002. Quando riceve una richiesta di connessione TCP genera un nuovo thread che si occupa di fare forwarding
 	
-	private static class listenToForward extends Thread
+	public static class listenToForward extends Thread
 	{
 		private ServerSocket serverSocket; 
 		private Socket s;
@@ -456,7 +481,7 @@ public class erraClient
 	
 	//Questo thread legge un ERRA PACKET e se e' per me lo tiene, altrimenti fa forwarding
 	
-	private static class forward extends Thread
+	public static class forward extends Thread
 	{
 		private Socket mySocket;
 		
@@ -510,10 +535,10 @@ public class erraClient
 					
 					headlengthByte=ByteBuffer.allocate(4).putInt(newHLen).array();		
 
-					byte[] forwardPacket=new byte[packet.length-nextHop.length()-1];				
+					byte[] forwardPacket=new byte[packet.length-j-1];				
 
 					System.arraycopy(headlengthByte, 0, forwardPacket, 0, 4);					
-					System.arraycopy(packet, 5+nextHop.length(), forwardPacket, 4, packet.length-5-j);
+					System.arraycopy(packet, j+5, forwardPacket, 4, packet.length-5-j);
 
 					String nextIP=getIP(nextHop);
 					try
@@ -617,6 +642,7 @@ public class erraClient
 		//Questa e' una funzione di supporto, mostra a video le informazioni sugli ERRA devices presenti
 		System.out.println("=======================================");
 		System.out.println(topology.size()+" nodi attivi");
+		System.out.println("ID"+'\t'+"IP");
 		for (Iterator<erraHost> i = topology.iterator(); i.hasNext();) 
 		{
 		    erraHost element = (erraHost)(i.next());
@@ -651,8 +677,6 @@ public class erraClient
 		    	packets++;	
 		    }
 
-		    
-		    
 		    
 		    int packets_length=(int)file.length()/packets;
 		    int residual_pck=0;
@@ -698,8 +722,20 @@ public class erraClient
 						    if (!((element.erraAddress.equals(erraDest)) || element.erraAddress.equals(ERRA_ADDRESS)))			///Aggiungi togliere me
 						    header+=element.erraAddress+"#";
 						}
-		      				
-		      		    header+=erraDest+"#"+Integer.toString(SN+i)+"@"+packets+"@"+filename.substring(filename.lastIndexOf('/')+1)+"@";
+		      			String name="";
+		      			
+		      			if(filename.lastIndexOf('/')!=-1)
+		      			{
+		      				name=filename.substring(filename.lastIndexOf('/')+1);
+		      			}
+		      			else if(filename.lastIndexOf('\\')!=-1)
+		      			{	
+		      				name=filename.substring(filename.lastIndexOf('\\')+1);
+		      			}
+		      			
+		      			System.out.println("????"+name);
+	      			
+		      		    header+=erraDest+"#"+Integer.toString(SN+i)+"@"+packets+"@"+name+"@";
 		      
 		      			byte[] newheader=header.getBytes();
 		      			
@@ -778,7 +814,7 @@ public class erraClient
 						if (input.equals(element.erraAddress)){valid=true;break;}
 					}
 					if (!(valid)){System.err.println("L'erra address specificato non e' valido, riprovare.");}
-					if (valid)erraDest=input;
+					if (valid){erraDest=input;}
 				}
 			}
 
@@ -791,7 +827,7 @@ public class erraClient
 			}
 			
 			int i=1;
-			for (Iterator it = pcks.iterator(); it.hasNext();)
+			for (Iterator<byte[]> it = pcks.iterator(); it.hasNext();)
 			{
 			    byte[] packet = (byte[])(it.next());
 			    byte[] hLen=new byte[4];
@@ -842,6 +878,7 @@ public class erraClient
 		return "";
 	}
 
+	
 	public static String getMyIP()
 	{
 		String ipAddress = null;
@@ -874,34 +911,78 @@ public class erraClient
 	}
 	
 	
+	public static boolean openBootstrapFile()
+	{	
+		int connectedBootstrap=0;
+		JFileChooser chooser = new JFileChooser();				//Mostro una finestra per la scelta del file da inviare
+		chooser.setCurrentDirectory(new File("."));
+		int r = chooser.showOpenDialog(new JFrame());
+		if (r == JFileChooser.APPROVE_OPTION) 
+		{
+			String path=chooser.getSelectedFile().getPath();
+			//Ora apro questo file che contiene gli indirizzi IP di tutti i bootstrap
+			File file = new File(path);
+			BufferedReader reader = null;
+			try 
+			{
+			    reader = new BufferedReader(new FileReader(file));
+			    String IP = null;
+			    while ((IP = reader.readLine()) != null) 
+			    {
+			    	if (validate(IP))
+			    		if(initializeErra(IP))connectedBootstrap++;
+			    }
+			} 
+			catch (FileNotFoundException e) 
+			{e.printStackTrace();} 
+			catch (IOException e) 
+			{e.printStackTrace();} 
+			finally 
+			{
+			    try {
+			        if (reader != null) 
+			        {
+			            reader.close();
+			        }
+			    } catch (IOException e) 
+			    {}
+			}
+		}
+		if (connectedBootstrap>0)
+			return true;
+		else
+			return false;
+	}
+
+	
+	private static final String PATTERN = 
+			"^([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
+	        "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
+	        "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
+	        "([01]?\\d\\d?|2[0-4]\\d|25[0-5])$";
+
+	
+	public static boolean validate(final String ip)
+	{          
+	      Pattern pattern = Pattern.compile(PATTERN);
+	      Matcher matcher = pattern.matcher(ip);
+	      return matcher.matches();             
+	}
+	
+	
 	public static void main(String[] args) throws InterruptedException, IOException
 	{	
+		boolean esito=openBootstrapFile();
 		
-		//System.out.println("Tentativo di connessione al nodo BOOTSTRAP...");
-		/*boolean esito=initializeErra();		
 		if (!esito)
 		{
-			System.err.println("Si e' manifestato un errore nella connessione al nodo di BOOTSTRAP...l'applicazione verrà chiusa.");
-			return;
-		}*/
-
-
-		topology.add(new erraHost("192.168.0.2","40"));
-		topology.add(new erraHost("192.168.0.5","41"));
-		
-		//topology.add(new erraHost("192.168.0.6","42"));
-		//topology.add(new erraHost("192.168.0.7","43"));
-		//Ora devo solo dalla topologia prendermi il mio erraAddress!!
-		
-		String ipAddress=getMyIP();
-
-		if(ERRA_ADDRESS.equals(""))
-		{
-			System.err.println("Sono tagliato fuori dalla topologia");
+			System.err.println("Connessione fallita con tutti i nodi bootstrap...l'applicazione verrà chiusa.");
+			System.exit(0);
 			return;
 		}
+		
+		
 		showTopology();
-		System.out.println("Io sono "+ERRA_ADDRESS + " con IP "+ipAddress);
 
 		answerAliveRequest imAlive=new answerAliveRequest();
 		imAlive.start();
@@ -912,13 +993,13 @@ public class erraClient
 		FM=new fileManager();
 		listenToForward F=new listenToForward();
 		F.start();
-
+		Scanner keyboard = new Scanner(System.in);
+		
 		while(true)
 		{	
-			Scanner keyboard = new Scanner(System.in);
-			String input = keyboard.next();
+		 	String input = keyboard.nextLine();
 			if (input.equals("E"))
-			{	keyboard.close();
+			{
 				System.out.println("Segnalo al bootstrap che me ne sto andando...");
 				try
 				{
@@ -927,6 +1008,7 @@ public class erraClient
 					refresh.releasePort();	//Chiudo la porta sulla quale stavo ascoltando
 					F.releasePort();		//Chiudo la porta sulla quale stavo ascoltando
 					System.out.println("Chiusura di tutti i thread completata");
+					System.exit(0);
 					return;
 				}
 				catch (UnknownHostException e){e.printStackTrace();}
