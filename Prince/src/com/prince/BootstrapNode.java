@@ -68,12 +68,13 @@ public class BootstrapNode extends NewErraClient {
 	private AliveAskerThread aliveAskerThread;
 
 	//	Storage and registers
-	private Map<String, ErraNode> nodes;
+	//private Map<String, ErraNode> nodes;
 	private Map<String, ErraNode.NodeState> rollCallRegister;	// "registro per fare l'appello"
 
 	private NodeViewer nodeViewer;
 
-	private BootstrapNode() {
+	private BootstrapNode() 
+	{
 		try {
 			String myIPAddress = InetAddress.getLocalHost().getHostAddress();
 			me = new ErraNode(myIPAddress, NodeType.NODE_TYPE_PRINCE, NodeState.NODE_STATE_ALIVE);

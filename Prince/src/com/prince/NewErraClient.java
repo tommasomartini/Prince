@@ -219,7 +219,7 @@ public class NewErraClient
 	//public static List<erraHost> topology = new ArrayList<erraHost>();
 	
 	//Questa struttura contiene tutti i nodi attivi
-	private static Map<String, ErraNode> nodes;
+	public static Map<String, ErraNode> nodes;
 	
 	//============== Funzione per inizializzare il sistema ERRA e scoprirne la topologia ======================
 
