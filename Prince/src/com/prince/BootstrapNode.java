@@ -11,6 +11,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -33,21 +35,25 @@ password: principe
 sudo apt-get install libmysql-java
  */
 
-public class BootstrapNode {
+public class BootstrapNode extends erraClient
+
+{
 
 	private boolean DEBUG = false;
+	private boolean ACTIVE_ALIVE_RQST = true;
 
-	//	Times and periods
-	private static final long DELAY_ASK_FOR_ALIVE = 1000;
-	private static final long PERIOD_ASK_FOR_ALIVE = 20000;
-	private static final long PERIOD_ASK_FOR_ALIVE_AGAIN = 2000;
+	//	Times and periods in milliseconds
+	private static final long DELAY_ASK_FOR_ALIVE = 1000 * 1;	// seconds
+	private static final long PERIOD_ASK_FOR_ALIVE = 1000 * 20;
+	private static final long PERIOD_ASK_FOR_ALIVE_AGAIN = 1000 * 3;
 	private static final int TIMES_TO_ASK_AGAIN = 3;
-	private static final long DELAY_WAIT_FOR_CALLING_TO_FINISH = 1000;	// if I have to update the tables and the Bootstrap is not on "running" mode I'll wait for this time before attempting again to access tables
+	private static final long DELAY_WAIT_FOR_CALLING_TO_FINISH = 1000 * 1;	// if I have to update the tables and the Bootstrap is not on "running" mode I'll wait for this time before attempting again to access tables
 
 	private static final String BOOTSTRAP_PASSWORD = "lupo";
 
 	//	States
-	private enum BootstrapState {
+	private enum BootstrapState
+	{
 		STATE_RUNNING,
 		STATE_ROLL_CALLING,
 		STATE_SPREADING_CHANGES,
@@ -102,17 +108,26 @@ public class BootstrapNode {
 	}	// BootstrapNode()
 
 	public static void main(String[] args) {
+		// ErraClient functions
+		answerAliveRequest A=new answerAliveRequest();
+		A.start();
+		FM = new fileManager();
+		listenToForward f = new listenToForward();
+		f.start();
+
 		BootstrapNode bootstrapNode = new BootstrapNode();
 		bootstrapNode.runBootstrap();
 	}	// main()
 
 	private void runBootstrap() {
+
+		System.out.println("#Bootstrap " + me.getID() + " activated. Time: " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime()));
 		joinedNodeListenerThread.start();
 		departedNodeListenerThread.start();
 		aliveNodeListenerThread.start();
 		Timer timer = new Timer();
 		TimerTask task = new AliveAskerTask();
-		if (!DEBUG) {
+		if (ACTIVE_ALIVE_RQST) {
 			timer.schedule(task, DELAY_ASK_FOR_ALIVE, PERIOD_ASK_FOR_ALIVE);
 		}
 
@@ -123,15 +138,18 @@ public class BootstrapNode {
 			msgFromKeyboard = scanner.nextLine();
 			if (msgFromKeyboard.equalsIgnoreCase("shutdown")) {
 				System.out.print("Insert password to shutdown the current Bootsrap Node: ");
-				String password = (new Scanner(System.in)).nextLine();
+				Scanner scanner2 = new Scanner(System.in);
+				String password = scanner2.nextLine();
 				if (password.equalsIgnoreCase(BOOTSTRAP_PASSWORD)) {
 					System.out.println("Correct password.\nThis Bootstrap Node will be disconnected...");
 					shutdown();
+					scanner.close();
 					System.out.println("...bye!");
 					System.exit(0);
 				} else {
 					System.out.println("Wrong password!");
 				}
+				scanner2.close();
 			} else if (msgFromKeyboard.equalsIgnoreCase("net")) {
 				showNetworkTable();
 			} else {
@@ -256,7 +274,7 @@ public class BootstrapNode {
 			System.out.println("Nuovo AliveAskerThread con id: " + threadId);
 			currentState = BootstrapState.STATE_ROLL_CALLING;
 			for (Map.Entry<Integer, NodeState> entry : rollCallRegister.entrySet()) {
-				entry.setValue(NodeState.NODE_STATE_MISSING);
+				updateRegister(entry.getKey(), NodeState.NODE_STATE_MISSING);
 			}
 			try {
 				DatagramSocket datagramSocket = new DatagramSocket(ErraNodePorts.PORT_BOOTSTRAP_ASK_ALIVE_NODES);
@@ -272,10 +290,14 @@ public class BootstrapNode {
 				boolean stillMissingNodes = true;
 				List<Integer> missingNodes = new LinkedList<Integer>();
 				while (rollCallingCounter > 0 && stillMissingNodes) {
+					System.out.println("...in attesa...");
 					Thread.sleep(PERIOD_ASK_FOR_ALIVE_AGAIN);
+					System.out.println("...controllo che nodi hanno risposto...");
 					for (Map.Entry<Integer, NodeState> registerEntry : rollCallRegister.entrySet()) {
 						if (registerEntry.getValue() == NodeState.NODE_STATE_MISSING && !missingNodes.contains(registerEntry.getKey())) {
 							missingNodes.add(registerEntry.getKey());
+						} else if (registerEntry.getValue() == NodeState.NODE_STATE_ALIVE && missingNodes.contains(registerEntry.getKey())) {
+							missingNodes.remove(registerEntry.getKey());
 						}
 					}
 
@@ -288,10 +310,26 @@ public class BootstrapNode {
 						for (Iterator<Integer> iterator = missingNodes.iterator(); iterator.hasNext();) {
 							Integer missingNodeID = (Integer)iterator.next();
 							ErraNode missingNode = nodes.get(missingNodeID);
+							System.out.println("Missing node: " + missingNodeID);
 							datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(missingNode.getIP_ADDRESS()), ErraNodePorts.PORT_SUBJECT_ALIVE_LISTENER);
 							datagramSocket.send(datagramPacket);
 						}
 						rollCallingCounter--;
+
+						//						da correggere. messo qua perche funzioni
+						for (Map.Entry<Integer, NodeState> registerEntry : rollCallRegister.entrySet()) {
+							if (registerEntry.getValue() == NodeState.NODE_STATE_MISSING && !missingNodes.contains(registerEntry.getKey())) {
+								missingNodes.add(registerEntry.getKey());
+							} else if (registerEntry.getValue() == NodeState.NODE_STATE_ALIVE && missingNodes.contains(registerEntry.getKey())) {
+								missingNodes.remove(registerEntry.getKey());
+							}
+						}
+
+						if (missingNodes.isEmpty()) {
+							stillMissingNodes = false;
+							System.out.println("Non mancano nodi. (Thread: " + threadId + ")"); // TODO remove me!!!
+						}
+						//						
 					}
 				}
 
@@ -350,9 +388,22 @@ public class BootstrapNode {
 			if (msgFromNode == null || msgFromNode.length() == 0 || !msgFromNode.equalsIgnoreCase("J")) {
 				System.err.println("Il messaggio del client che chiede di aggiungersi alla rete e' vuoto o diverso da \'J\'");
 			} else {
-
 				InetAddress inetAddress = socket.getInetAddress();
 				String ipString = inetAddress.getHostAddress();
+				for(Map.Entry<Integer, ErraNode> entry : nodes.entrySet()) {
+					if (ipString.equalsIgnoreCase(entry.getValue().getIP_ADDRESS())) {
+						try {
+							PrintStream toNode = new PrintStream(socket.getOutputStream());
+							String table = "W@" + entry.getValue().getID() + "@" + getNodesMapToString() + "\n";
+							toNode.println(table);
+							toNode.close();
+							socket.close();
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+						return;
+					}
+				}
 				int currentId = newNodeID++;
 				ErraNode node = new ErraNode(currentId, ipString, NodeType.UNKNOWN, NodeState.NODE_STATE_ALIVE);
 				while (currentState != BootstrapState.STATE_RUNNING) {
@@ -369,9 +420,11 @@ public class BootstrapNode {
 					PrintStream toNode = new PrintStream(socket.getOutputStream());
 					String table = "W@" + currentId + "@" + getNodesMapToString() + "\n";
 					toNode.println(table);
+					toNode.close();
+					socket.close();
 				} catch (IOException e) {
 					e.printStackTrace();
-				}	
+				}
 			}
 		}	
 	}	// AddNodeThread
@@ -413,6 +466,11 @@ public class BootstrapNode {
 					spreadNetworkChanges(new ErraNode[]{removedNode}, false);
 				} else {
 					System.out.println("Il nodo " + identifier + " non e' presente nella rete");
+				}
+				try {
+					socket.close();
+				} catch (IOException e) {
+					e.printStackTrace();
 				}
 			}
 		}	
@@ -463,7 +521,7 @@ public class BootstrapNode {
 		String mapToString = String.valueOf(nodes.size() + 1) + "@";
 		for(Map.Entry<Integer, ErraNode> entry : nodes.entrySet()) {
 			ErraNode currentNode = entry.getValue();
-			mapToString += String.valueOf(currentNode.getID()) + "#" + currentNode.getIP_ADDRESS() + "%";
+			mapToString += currentNode.getIP_ADDRESS() + "#" + String.valueOf(currentNode.getID()) + "%";
 		}
 		mapToString += me.getIP_ADDRESS() + "#" + me.getID() + "%";	// add me
 		return mapToString;
@@ -481,6 +539,18 @@ public class BootstrapNode {
 		System.out.println("...(closing operations)...");
 		return true;
 	}
+	
+/*
+ * Convert from Bootstrap structure to ErraClient structure
+ */
+	private void convertNetworkStructure() {
+		topology.clear();
+		for(Map.Entry<Integer, ErraNode> entry : nodes.entrySet()) {
+			ErraNode currentNode = entry.getValue();
+			erraHost currentErraHost = new erraHost(currentNode.getIP_ADDRESS(), String.valueOf(currentNode.getID()));
+			topology.add(currentErraHost);
+		}
+	}
 
 	/*
 	 * Synchronized operations on data registers
@@ -489,12 +559,14 @@ public class BootstrapNode {
 		nodes.put(erraNode.getID(), erraNode);
 		rollCallRegister.put(erraNode.getID(), NodeState.NODE_STATE_ALIVE);	// update rollCallRegister too
 		showNetworkTable();
+		convertNetworkStructure();
 	}
 
 	private synchronized ErraNode removeErraNode(int erraNodeID) {
 		rollCallRegister.remove(erraNodeID);
 		ErraNode removedNode = nodes.remove(erraNodeID);
 		showNetworkTable();
+		convertNetworkStructure();
 		return removedNode;
 	}
 
@@ -502,6 +574,7 @@ public class BootstrapNode {
 		rollCallRegister.put(erraNodeID, nodeState);
 	}
 
+	// T@+[-]erraID#erraIP%erraID#erraIP%erraID#erraIP%...
 	private synchronized void spreadNetworkChanges(ErraNode[] changedNodes, boolean added) {
 		currentState = BootstrapState.STATE_SPREADING_CHANGES;
 		String msg = "T@";
@@ -514,13 +587,19 @@ public class BootstrapNode {
 			ErraNode changedNode = changedNodes[i];
 			msg += changedNode.getID() + "#" + changedNode.getIP_ADDRESS() + "%";
 		}
+
+		Socket socket;
 		for(Map.Entry<Integer, ErraNode> entry : nodes.entrySet()) {
 			ErraNode currentNode = entry.getValue();
 			try {
-				Socket socket = new Socket(InetAddress.getByName(currentNode.getIP_ADDRESS()), ErraNodePorts.PORT_SUBJECT_REFRESH_TABLE_LISTENER, InetAddress.getLocalHost(), ErraNodePorts.PORT_BOOTSTRAP_REFRESH_TABLE);
+				socket = new Socket(InetAddress.getByName(currentNode.getIP_ADDRESS()), ErraNodePorts.PORT_SUBJECT_REFRESH_TABLE_LISTENER);
 				PrintStream toNode = new PrintStream(socket.getOutputStream());
 				toNode.println(msg);
+				toNode.close();
 				socket.close();
+				while(!socket.isClosed()){
+
+				}
 			} catch (UnknownHostException e) {
 				e.printStackTrace();
 			} catch (IOException e) {

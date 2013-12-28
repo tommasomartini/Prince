@@ -32,9 +32,7 @@ public class AliveNodeTester {
 			}
 			aliveSocket = new DatagramSocket(PORT_ALIVE);
 			System.out.println("Sono in ascolto sulla porta " + PORT_ALIVE + "...");
-		} 
-		catch (IOException e) 
-		{
+		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}

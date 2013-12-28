@@ -29,7 +29,7 @@ public class NodeViewer extends JPanel {
 	private JTable table;
 	private JLabel label;
 	private JScrollPane scrollPane;
-	
+
 	public NodeViewer() {
 		super(new GridLayout(1,0));
 		nodes = null;
@@ -109,7 +109,7 @@ public class NodeViewer extends JPanel {
 			}
 			table = new JTable(data, columnNames);
 			table.setPreferredScrollableViewportSize(new Dimension(1400, 200));
-	        table.setFillsViewportHeight(true);
+			table.setFillsViewportHeight(true);
 			scrollPane = new JScrollPane(table);
 			add(scrollPane);
 			this.setOpaque(true);
