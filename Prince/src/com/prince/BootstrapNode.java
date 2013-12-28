@@ -68,11 +68,14 @@ public class BootstrapNode extends NewErraClient {
 	private AliveAskerThread aliveAskerThread;
 
 	//	Storage and registers
+	//private Map<String, ErraNode> nodes;
+
 	private Map<String, ErraNode.NodeState> rollCallRegister;	// "registro per fare l'appello"
 
 	private NodeViewer nodeViewer;
 
-	private BootstrapNode() {
+	private BootstrapNode() 
+	{
 		try {
 //			Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
 //			while(networkInterfaces.hasMoreElements()) {
@@ -504,7 +507,7 @@ public class BootstrapNode extends NewErraClient {
 		String mapToString = "";
 		for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
 			ErraNode currentNode = entry.getValue();
-			mapToString += currentNode.getIPAddress();
+			mapToString += currentNode.getIPAddress()+ DELIMITER_MSG_PARAMS;
 		}
 		mapToString += me.getIPAddress() + DELIMITER_MSG_PARAMS;	// add me
 		return mapToString;
