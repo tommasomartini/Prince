@@ -40,7 +40,7 @@ public class BootstrapNode extends erraClient
 {
 
 	private boolean DEBUG = false;
-	private boolean ACTIVE_ALIVE_RQST = true;
+	private boolean ACTIVE_ALIVE_RQST = false;
 
 	//	Times and periods in milliseconds
 	private static final long DELAY_ASK_FOR_ALIVE = 1000 * 1;	// seconds
@@ -394,7 +394,7 @@ public class BootstrapNode extends erraClient
 					if (ipString.equalsIgnoreCase(entry.getValue().getIP_ADDRESS())) {
 						try {
 							PrintStream toNode = new PrintStream(socket.getOutputStream());
-							String table = "W@" + entry.getValue().getID() + "@" + getNodesMapToString() + "\n";
+							String table = "W@" + getNodesMapToString() + "\n";
 							toNode.println(table);
 							toNode.close();
 							socket.close();

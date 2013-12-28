@@ -3,7 +3,8 @@ package com.prince;
 import java.util.Calendar;
 import java.util.Date;
 
-public class ErraNode {
+public class ErraNode
+{
 	
 	public enum NodeType {
 		NODE_TYPE_PRINCE,
@@ -39,6 +40,16 @@ public class ErraNode {
 		nodeType = NodeType.UNKNOWN;
 		nodeState = NodeState.UNKNOWN;
 	}
+	
+	public ErraNode(String ip) 
+	{
+		ID=0;
+		IP_ADDRESS = ip;
+		joinTime = Calendar.getInstance().getTime();
+		nodeType = NodeType.UNKNOWN;
+		nodeState = NodeState.UNKNOWN;
+	}
+
 
 	public int getID() {
 		return ID;
