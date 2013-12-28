@@ -68,12 +68,24 @@ public class BootstrapNode extends NewErraClient {
 	private AliveAskerThread aliveAskerThread;
 
 	//	Storage and registers
+	//private Map<String, ErraNode> nodes;
+
 	private Map<String, ErraNode.NodeState> rollCallRegister;	// "registro per fare l'appello"
 
 	private NodeViewer nodeViewer;
 
-	private BootstrapNode() {
+	private BootstrapNode() 
+	{
 		try {
+//			Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+//			while(networkInterfaces.hasMoreElements()) {
+//			    NetworkInterface networkInterface = (NetworkInterface)networkInterfaces.nextElement();
+//			    Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();
+//			    while(inetAddresses.hasMoreElements()) {
+//			        InetAddress currentInetAddress = (InetAddress)inetAddresses.nextElement();
+//			        System.out.println(networkInterface.getName() + currentInetAddress.getHostAddress());
+//			    }
+//			}
 			String myIPAddress = InetAddress.getLocalHost().getHostAddress();
 			me = new ErraNode(myIPAddress, NodeType.NODE_TYPE_PRINCE, NodeState.NODE_STATE_ALIVE);
 		} catch (UnknownHostException e) {
@@ -495,7 +507,7 @@ public class BootstrapNode extends NewErraClient {
 		String mapToString = "";
 		for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
 			ErraNode currentNode = entry.getValue();
-			mapToString += currentNode.getIPAddress();
+			mapToString += currentNode.getIPAddress()+ DELIMITER_MSG_PARAMS;
 		}
 		mapToString += me.getIPAddress() + DELIMITER_MSG_PARAMS;	// add me
 		return mapToString;
