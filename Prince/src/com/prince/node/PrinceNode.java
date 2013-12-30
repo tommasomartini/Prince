@@ -1,4 +1,4 @@
-package com.prince;
+package com.prince.node;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -22,21 +22,23 @@ import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import com.prince.ErraNode.NodeState;
-import com.prince.ErraNode.NodeType;
+import com.prince.ErraNode;
+import com.prince.node.ErraNode.NodeState;
+import com.prince.node.ErraNode.NodeType;
 
-public class PrinceNode {
-
+public class PrinceNode extends NewErraClient {
+//	public class PrinceNode extends NewErraClient {
+		
 	private boolean DEBUG = false;
 	private boolean ACTIVE_ALIVE_RQST = true;
-		
+	
 	private static final String DELIMITER_AFTER_MSG_CHAR = "@";
 	private static final String DELIMITER_MSG_PARAMS = "#";
 
 	//	Times and periods in milliseconds
-	private static final long DELAY_ASK_FOR_ALIVE = 1000 * 5;	// seconds
-	private static final long PERIOD_ASK_FOR_ALIVE = 1000 * 1220;
-	private static final long PERIOD_ASK_FOR_ALIVE_AGAIN = 1000 * 2;
+	private static final long DELAY_ASK_FOR_ALIVE = 1000 * 1;	// seconds
+	private static final long PERIOD_ASK_FOR_ALIVE = 1000 * 20;
+	private static final long PERIOD_ASK_FOR_ALIVE_AGAIN = 1000 * 3;
 	private static final int TIMES_TO_ASK_AGAIN = 3;
 	private static final long DELAY_WAIT_FOR_CALLING_TO_FINISH = 1000 * 1;	// if I have to update the tables and the Bootstrap is not on "running" mode I'll wait for this time before attempting again to access tables
 
@@ -67,7 +69,6 @@ public class PrinceNode {
 	//	Speaking threads
 	private AliveAskerThread aliveAskerThread;
 
-	private Map<String, ErraNode> nodes;
 	private Map<String, ErraNode.NodeState> rollCallRegister;	// "registro per fare l'appello"
 
 	private NodeViewer nodeViewer;
@@ -105,12 +106,12 @@ public class PrinceNode {
 	}	// BootstrapNode()
 
 	public static void main(String[] args) {
-		// ErraClient functions	TODO attivare queste funzioni!
-//		answerAliveRequest A=new answerAliveRequest();
-//		A.start();
-//		FM = new fileManager();
-//		listenToForward f = new listenToForward();
-//		f.start();
+		// ErraClient functions
+		answerAliveRequest A=new answerAliveRequest();
+		A.start();
+		FM = new fileManager();
+		listenToForward f = new listenToForward();
+		f.start();
 
 		PrinceNode princeNode = new PrinceNode();
 		princeNode.runPrinceNode();
@@ -284,10 +285,11 @@ public class PrinceNode {
 					datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(currentNode.getIPAddress()), ErraNodePorts.PORT_SUBJECT_ALIVE_LISTENER);
 					datagramSocket.send(datagramPacket);
 				}
+
 				int rollCallingCounter = TIMES_TO_ASK_AGAIN;
 				boolean stillMissingNodes = true;
 				List<String> missingNodes = new LinkedList<String>();
-				while (rollCallingCounter >= 0 && stillMissingNodes) {
+				while (rollCallingCounter > 0 && stillMissingNodes) {
 					System.out.println("Waiting for alive answers...");
 					Thread.sleep(PERIOD_ASK_FOR_ALIVE_AGAIN);
 					for (Map.Entry<String, NodeState> registerEntry : rollCallRegister.entrySet()) {
@@ -301,17 +303,32 @@ public class PrinceNode {
 					if (missingNodes.isEmpty()) {
 						stillMissingNodes = false;
 						System.out.println("No missing nodes. (Thread: " + threadId + ")"); // TODO remove me!!!
-					} else if (rollCallingCounter > 0) {	// send again
+					} else {
 						int numRqst = TIMES_TO_ASK_AGAIN - rollCallingCounter + 1;
-						System.out.println("Missing nodes! Send request bis number: " + numRqst + "/" + TIMES_TO_ASK_AGAIN + " to the following nodes:"); // TODO remove me!!!
+						System.out.println("Missing nodes! Send request bis number: " + numRqst + "/" + TIMES_TO_ASK_AGAIN + " (Thread: " + threadId + ")"); // TODO remove me!!!
 						for (Iterator<String> iterator = missingNodes.iterator(); iterator.hasNext();) {
 							String missingNodeIPAddress = (String)iterator.next();
-							System.out.println("- " + missingNodeIPAddress);
+							System.out.println("Node: " + missingNodeIPAddress + " still missing.");
 							datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(missingNodeIPAddress), ErraNodePorts.PORT_SUBJECT_ALIVE_LISTENER);
 							datagramSocket.send(datagramPacket);
-						}						
+						}
+						rollCallingCounter--;
+
+						// FIXME da correggere. messo qua perche funzioni
+						for (Map.Entry<String, NodeState> registerEntry : rollCallRegister.entrySet()) {
+							if (registerEntry.getValue() == NodeState.NODE_STATE_MISSING && !missingNodes.contains(registerEntry.getKey())) {
+								missingNodes.add(registerEntry.getKey());
+							} else if (registerEntry.getValue() == NodeState.NODE_STATE_ALIVE && missingNodes.contains(registerEntry.getKey())) {
+								missingNodes.remove(registerEntry.getKey());
+							}
+						}
+
+						if (missingNodes.isEmpty()) {
+							stillMissingNodes = false;
+							System.out.println("Non mancano nodi. (Thread: " + threadId + ")"); // TODO remove me!!!
+						}
+						// FIXME						
 					}
-					rollCallingCounter--;
 				}
 
 				datagramSocket.close();
@@ -453,7 +470,6 @@ public class PrinceNode {
 		public NotifiedAliveNodeThread(DatagramPacket newDatagramPacket) {
 			super();
 			datagramPacket = newDatagramPacket;
-			this.setName(this.getClass().getName());
 		}
 
 		@Override
@@ -530,6 +546,7 @@ public class PrinceNode {
 		rollCallRegister.put(erraIPAddress, nodeState);
 	}
 
+	// T@+[-]erraID#erraIP%erraID#erraIP%erraID#erraIP%...
 	private synchronized void spreadNetworkChanges(ErraNode[] changedNodes, boolean added) {
 		currentState = PrinceState.STATE_SPREADING_CHANGES;
 		String msg = "T" + DELIMITER_AFTER_MSG_CHAR;
