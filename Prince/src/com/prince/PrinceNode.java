@@ -29,13 +29,10 @@ public class PrinceNode {
 
 	private boolean DEBUG = false;
 	private boolean ACTIVE_ALIVE_RQST = true;
-		
-	private static final String DELIMITER_AFTER_MSG_CHAR = "@";
-	private static final String DELIMITER_MSG_PARAMS = "#";
 
 	//	Times and periods in milliseconds
-	private static final long DELAY_ASK_FOR_ALIVE = 1000 * 5;	// seconds
-	private static final long PERIOD_ASK_FOR_ALIVE = 1000 * 1220;
+	private static final long DELAY_ASK_FOR_ALIVE = 1000 * 3;	// seconds
+	private static final long PERIOD_ASK_FOR_ALIVE = 1000 * 15;
 	private static final long PERIOD_ASK_FOR_ALIVE_AGAIN = 1000 * 2;
 	private static final int TIMES_TO_ASK_AGAIN = 3;
 	private static final long DELAY_WAIT_FOR_CALLING_TO_FINISH = 1000 * 1;	// if I have to update the tables and the Bootstrap is not on "running" mode I'll wait for this time before attempting again to access tables
@@ -185,7 +182,7 @@ public class PrinceNode {
 		public JoinedNodeListenerThread() {
 			super();
 			try {
-				joinedNodeListener = new ServerSocket(ErraNodePorts.PORT_PRINCE_JOINED_NODE);
+				joinedNodeListener = new ServerSocket(ErraNodeVariables.PORT_PRINCE_JOINED_NODE);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -211,7 +208,7 @@ public class PrinceNode {
 		public DepartedNodeListenerThread() {
 			super();
 			try {
-				departedNodeListener = new ServerSocket(ErraNodePorts.PORT_PRINCE_DEPARTED_NODE);
+				departedNodeListener = new ServerSocket(ErraNodeVariables.PORT_PRINCE_DEPARTED_NODE);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -237,7 +234,7 @@ public class PrinceNode {
 		public AliveNodeListenerThread() {
 			super();
 			try {
-				aliveNodeListener = new DatagramSocket(ErraNodePorts.PORT_PRINCE_ALIVE_NODE);
+				aliveNodeListener = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_ALIVE_NODE);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -276,12 +273,12 @@ public class PrinceNode {
 				updateRegister(entry.getKey(), NodeState.NODE_STATE_MISSING);
 			}
 			try {
-				DatagramSocket datagramSocket = new DatagramSocket(ErraNodePorts.PORT_PRINCE_ASK_ALIVE_NODES);
+				DatagramSocket datagramSocket = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_ASK_ALIVE_NODES);
 				DatagramPacket datagramPacket;
 				byte[] msg = (new String("?")).getBytes();
 				for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
 					ErraNode currentNode = entry.getValue();
-					datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(currentNode.getIPAddress()), ErraNodePorts.PORT_SUBJECT_ALIVE_LISTENER);
+					datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(currentNode.getIPAddress()), ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
 					datagramSocket.send(datagramPacket);
 				}
 				int rollCallingCounter = TIMES_TO_ASK_AGAIN;
@@ -307,7 +304,7 @@ public class PrinceNode {
 						for (Iterator<String> iterator = missingNodes.iterator(); iterator.hasNext();) {
 							String missingNodeIPAddress = (String)iterator.next();
 							System.out.println("- " + missingNodeIPAddress);
-							datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(missingNodeIPAddress), ErraNodePorts.PORT_SUBJECT_ALIVE_LISTENER);
+							datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(missingNodeIPAddress), ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
 							datagramSocket.send(datagramPacket);
 						}						
 					}
@@ -387,7 +384,7 @@ public class PrinceNode {
 				}
 				try {
 					PrintStream toNode = new PrintStream(socket.getOutputStream());
-					String table = "W" + DELIMITER_AFTER_MSG_CHAR + getNodesMapToString();
+					String table = "W" + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR + getNodesMapToString();
 					toNode.println(table);
 					toNode.close();
 					socket.close();
@@ -421,7 +418,7 @@ public class PrinceNode {
 				System.err.println("Il messaggio del client che chiede di aggiungersi alla rete e' vuoto o diverso da \'E\'");
 			} else {
 				// messaggio nella forma E@erraIP
-				String[] segments = msgFromNode.split(DELIMITER_AFTER_MSG_CHAR);
+				String[] segments = msgFromNode.split(ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR);
 				String ipAddress = segments[1];
 				while (currentState != PrinceState.STATE_RUNNING) {
 					try {
@@ -490,9 +487,9 @@ public class PrinceNode {
 		String mapToString = "";
 		for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
 			ErraNode currentNode = entry.getValue();
-			mapToString += currentNode.getIPAddress()+ DELIMITER_MSG_PARAMS;
+			mapToString += currentNode.getIPAddress() + ErraNodeVariables.DELIMITER_MSG_PARAMS;
 		}
-		mapToString += me.getIPAddress() + DELIMITER_MSG_PARAMS;	// add me
+		mapToString += me.getIPAddress() + ErraNodeVariables.DELIMITER_MSG_PARAMS;	// add me
 		return mapToString;
 	}
 
@@ -532,7 +529,7 @@ public class PrinceNode {
 
 	private synchronized void spreadNetworkChanges(ErraNode[] changedNodes, boolean added) {
 		currentState = PrinceState.STATE_SPREADING_CHANGES;
-		String msg = "T" + DELIMITER_AFTER_MSG_CHAR;
+		String msg = "T" + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR;
 		if (added) {
 			msg += "+";
 		} else {
@@ -540,13 +537,13 @@ public class PrinceNode {
 		}
 		for (int i = 0; i < changedNodes.length; i++) {
 			ErraNode changedNode = changedNodes[i];
-			msg += changedNode.getIPAddress() + DELIMITER_MSG_PARAMS;
+			msg += changedNode.getIPAddress() + ErraNodeVariables.DELIMITER_MSG_PARAMS;
 		}
 		Socket socket;
 		for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
 			ErraNode currentNode = entry.getValue();
 			try {
-				socket = new Socket(InetAddress.getByName(currentNode.getIPAddress()), ErraNodePorts.PORT_SUBJECT_REFRESH_TABLE_LISTENER);
+				socket = new Socket(InetAddress.getByName(currentNode.getIPAddress()), ErraNodeVariables.PORT_SUBJECT_REFRESH_TABLE_LISTENER);
 				PrintStream toNode = new PrintStream(socket.getOutputStream());
 				toNode.println(msg);
 				toNode.close();

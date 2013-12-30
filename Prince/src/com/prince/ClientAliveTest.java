@@ -35,7 +35,7 @@ public class ClientAliveTest {
 
 	private void runClientAliveTest() {
 		try {
-			Socket joinSocket = new Socket(bootstrapInetAddress, ErraNodePorts.PORT_PRINCE_JOINED_NODE, InetAddress.getLocalHost(), ErraNodePorts.PORT_SUBJECT_HELLO);
+			Socket joinSocket = new Socket(bootstrapInetAddress, ErraNodeVariables.PORT_PRINCE_JOINED_NODE, InetAddress.getLocalHost(), ErraNodeVariables.PORT_SUBJECT_HELLO);
 			PrintStream toBootstrap = new PrintStream(joinSocket.getOutputStream());
 			String msgToBootstrap = "J";
 			toBootstrap.println(msgToBootstrap);
@@ -64,7 +64,7 @@ public class ClientAliveTest {
 		public AnswerAliveThread() {
 			super();
 			try {
-				aliveDatagramSocket = new DatagramSocket(ErraNodePorts.PORT_SUBJECT_ALIVE_LISTENER);
+				aliveDatagramSocket = new DatagramSocket(ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
 			} catch (SocketException e) {
 				e.printStackTrace();
 			}
@@ -83,7 +83,7 @@ public class ClientAliveTest {
 					if (msgFromBootstrap.equalsIgnoreCase("?")) {
 						System.out.print("Ricevuta richiesta di alive... ");
 						byte[] msgToBootstrap = new String("!").getBytes();
-						DatagramPacket sendingPacket = new DatagramPacket(msgToBootstrap, msgToBootstrap.length, bootstrapInetAddress, ErraNodePorts.PORT_PRINCE_ALIVE_NODE);
+						DatagramPacket sendingPacket = new DatagramPacket(msgToBootstrap, msgToBootstrap.length, bootstrapInetAddress, ErraNodeVariables.PORT_PRINCE_ALIVE_NODE);
 						if (counter == 0) {
 							aliveDatagramSocket.send(sendingPacket);
 							System.out.println("risposto!");

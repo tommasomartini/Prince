@@ -1,7 +1,16 @@
 package com.prince;
 
-public class ErraNodePorts {
+public class ErraNodeVariables {
 	
+	/*
+	 * Strings
+	 */
+	public static final String DELIMITER_AFTER_MSG_CHAR = "@";
+	public static final String DELIMITER_MSG_PARAMS = "#";
+	
+	/*
+	 * Ports
+	 */
 	//	Prince
 	//	Listening ports
 	public static final int PORT_PRINCE_JOINED_NODE = 8001;

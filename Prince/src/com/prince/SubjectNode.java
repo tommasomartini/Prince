@@ -212,7 +212,7 @@ public class SubjectNode {
 		try {
 			Socket tcpClientSocket = new Socket();
 			try {
-				tcpClientSocket.connect(new InetSocketAddress(address, ErraNodePorts.PORT_PRINCE_JOINED_NODE), CONNECTION_TIMEOUT);
+				tcpClientSocket.connect(new InetSocketAddress(address, ErraNodeVariables.PORT_PRINCE_JOINED_NODE), CONNECTION_TIMEOUT);
 			} catch (IOException e) {	
 				System.err.println("Impossibile raggiungere il bootstrap node " + address);
 				tcpClientSocket.close();
@@ -234,7 +234,7 @@ public class SubjectNode {
 				fromServer=fromServer.substring(2);		//Taglio la welcome portion
 				updateStructure(fromServer);		
 			} else {
-				System.err.println("Ho ricevuto sulla porta " + ErraNodePorts.PORT_PRINCE_JOINED_NODE + " un dato che non e' una tabella della rete!!");
+				System.err.println("Ho ricevuto sulla porta " + ErraNodeVariables.PORT_PRINCE_JOINED_NODE + " un dato che non e' una tabella della rete!!");
 			}
 		} catch (ConnectException e) {
 			e.printStackTrace();
@@ -255,7 +255,7 @@ public class SubjectNode {
 		public void run() {	
 			super.run();
 			try {	
-				udpDatagramSocket = new DatagramSocket(ErraNodePorts.PORT_SUBJECT_ALIVE_LISTENER);
+				udpDatagramSocket = new DatagramSocket(ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
 				byte[] receivedData = new byte[1024];
 				byte[] sendData = new byte[1024];
 
@@ -269,7 +269,7 @@ public class SubjectNode {
 					}
 					String message = new String(receivedPacket.getData(), 0, receivedPacket.getLength());
 					if (message.charAt(0) != '?') {
-						System.err.println("Ho ricevuto sulla porta " + ErraNodePorts.PORT_SUBJECT_ALIVE_LISTENER + " un pacchetto che non riesco a decodificare.");
+						System.err.println("Ho ricevuto sulla porta " + ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER + " un pacchetto che non riesco a decodificare.");
 						System.err.println("Il pacchetto e': " + message);
 					} else {
 						String sentence = "!@" + ERRA_ADDRESS;
@@ -303,7 +303,7 @@ public class SubjectNode {
 			super.run();
 			while(true) {
 				try {	
-					serverSpcket = new ServerSocket(ErraNodePorts.PORT_SUBJECT_REFRESH_TABLE_LISTENER);		//Mi metto in ascolto in attesa di connessioni TCP
+					serverSpcket = new ServerSocket(ErraNodeVariables.PORT_SUBJECT_REFRESH_TABLE_LISTENER);		//Mi metto in ascolto in attesa di connessioni TCP
 					try {	
 						socket=serverSpcket.accept();							//Quanto ho una richiesta di connessione la accetto!
 					} catch (SocketException e) {	
@@ -344,7 +344,7 @@ public class SubjectNode {
 						}
 						showTopology();
 					} else {
-						System.err.println("Ho ricevuto sulla porta " + ErraNodePorts.PORT_SUBJECT_REFRESH_TABLE_LISTENER + " un dato che non e' una tabella della rete!!");
+						System.err.println("Ho ricevuto sulla porta " + ErraNodeVariables.PORT_SUBJECT_REFRESH_TABLE_LISTENER + " un dato che non e' una tabella della rete!!");
 					}
 					serverSpcket.close();
 					socket.close();
@@ -376,7 +376,7 @@ public class SubjectNode {
 		public void run() {
 			super.run();
 			try {
-				serverSocket = new ServerSocket(ErraNodePorts.PORT_SUBJECT_FILE_FORWARDING);
+				serverSocket = new ServerSocket(ErraNodeVariables.PORT_SUBJECT_FILE_FORWARDING);
 
 				while(true) {
 					socket = serverSocket.accept();

@@ -187,7 +187,7 @@ public class BootstrapNode extends NewErraClient {
 		public JoinedNodeListenerThread() {
 			super();
 			try {
-				joinedNodeListener = new ServerSocket(ErraNodePorts.PORT_PRINCE_JOINED_NODE);
+				joinedNodeListener = new ServerSocket(ErraNodeVariables.PORT_PRINCE_JOINED_NODE);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -213,7 +213,7 @@ public class BootstrapNode extends NewErraClient {
 		public DepartedNodeListenerThread() {
 			super();
 			try {
-				departedNodeListener = new ServerSocket(ErraNodePorts.PORT_PRINCE_DEPARTED_NODE);
+				departedNodeListener = new ServerSocket(ErraNodeVariables.PORT_PRINCE_DEPARTED_NODE);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -239,7 +239,7 @@ public class BootstrapNode extends NewErraClient {
 		public AliveNodeListenerThread() {
 			super();
 			try {
-				aliveNodeListener = new DatagramSocket(ErraNodePorts.PORT_PRINCE_ALIVE_NODE);
+				aliveNodeListener = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_ALIVE_NODE);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -278,12 +278,12 @@ public class BootstrapNode extends NewErraClient {
 				updateRegister(entry.getKey(), NodeState.NODE_STATE_MISSING);
 			}
 			try {
-				DatagramSocket datagramSocket = new DatagramSocket(ErraNodePorts.PORT_PRINCE_ASK_ALIVE_NODES);
+				DatagramSocket datagramSocket = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_ASK_ALIVE_NODES);
 				DatagramPacket datagramPacket;
 				byte[] msg = (new String("?")).getBytes();
 				for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
 					ErraNode currentNode = entry.getValue();
-					datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(currentNode.getIPAddress()), ErraNodePorts.PORT_SUBJECT_ALIVE_LISTENER);
+					datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(currentNode.getIPAddress()), ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
 					datagramSocket.send(datagramPacket);
 				}
 
@@ -310,7 +310,7 @@ public class BootstrapNode extends NewErraClient {
 						for (Iterator<String> iterator = missingNodes.iterator(); iterator.hasNext();) {
 							String missingNodeIPAddress = (String)iterator.next();
 							System.out.println("Node: " + missingNodeIPAddress + " still missing.");
-							datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(missingNodeIPAddress), ErraNodePorts.PORT_SUBJECT_ALIVE_LISTENER);
+							datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(missingNodeIPAddress), ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
 							datagramSocket.send(datagramPacket);
 						}
 						rollCallingCounter--;
@@ -564,7 +564,7 @@ public class BootstrapNode extends NewErraClient {
 		for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
 			ErraNode currentNode = entry.getValue();
 			try {
-				socket = new Socket(InetAddress.getByName(currentNode.getIPAddress()), ErraNodePorts.PORT_SUBJECT_REFRESH_TABLE_LISTENER);
+				socket = new Socket(InetAddress.getByName(currentNode.getIPAddress()), ErraNodeVariables.PORT_SUBJECT_REFRESH_TABLE_LISTENER);
 				PrintStream toNode = new PrintStream(socket.getOutputStream());
 				toNode.println(msg);
 				toNode.close();
