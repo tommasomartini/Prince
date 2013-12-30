@@ -267,14 +267,14 @@ public class PrinceNode {
 		@Override
 		public void run() {
 			super.run();
-			currentState = PrinceState.STATE_ROLL_CALLING;
+			updatePrinceState(PrinceState.STATE_ROLL_CALLING);
 			for (Map.Entry<String, NodeState> entry : rollCallRegister.entrySet()) {
 				updateRegister(entry.getKey(), NodeState.NODE_STATE_MISSING);
 			}
 			try {
 				DatagramSocket datagramSocket = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_ASK_ALIVE_NODES);
 				DatagramPacket datagramPacket;
-				byte[] msg = (new String("?")).getBytes();
+				byte[] msg = (new String(ErraNodeVariables.MSG_PRINCE_ALIVE_REQUEST)).getBytes();
 				for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
 					ErraNode currentNode = entry.getValue();
 					datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(currentNode.getIPAddress()), ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
@@ -324,7 +324,7 @@ public class PrinceNode {
 					spreadNetworkChanges(deadNodes, false);
 				}
 
-				currentState = PrinceState.STATE_RUNNING;
+				updatePrinceState(PrinceState.STATE_RUNNING);
 
 			} catch (SocketException e) {
 				e.printStackTrace();
@@ -362,7 +362,7 @@ public class PrinceNode {
 				e.printStackTrace();
 			}
 
-			if (msgFromNode == null || msgFromNode.length() == 0 || !msgFromNode.equalsIgnoreCase("J")) {
+			if (msgFromNode == null || msgFromNode.length() == 0 || !msgFromNode.equalsIgnoreCase(ErraNodeVariables.MSG_SUBJECT_JOIN_REQUEST)) {
 				System.err.println("Il messaggio del client che chiede di aggiungersi alla rete e' vuoto o diverso da \'J\'");
 			} else {
 				InetAddress inetAddress = socket.getInetAddress();
@@ -383,7 +383,7 @@ public class PrinceNode {
 				}
 				try {
 					PrintStream toNode = new PrintStream(socket.getOutputStream());
-					String table = "W" + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR + getNodesMapToString();
+					String table = ErraNodeVariables.MSG_PRINCE_WELCOME + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR + getNodesMapToString();
 					toNode.println(table);
 					toNode.close();
 					socket.close();
@@ -413,7 +413,7 @@ public class PrinceNode {
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-			if (msgFromNode == null || msgFromNode.length() == 0 || !msgFromNode.substring(0, 1).equalsIgnoreCase("E")) {
+			if (msgFromNode == null || msgFromNode.length() == 0 || !msgFromNode.substring(0, 1).equalsIgnoreCase(ErraNodeVariables.MSG_SUBJECT_DEPART_REQUEST)) {
 				System.err.println("Il messaggio del client che chiede di aggiungersi alla rete e' vuoto o diverso da \'E\'");
 			} else {
 				// messaggio nella forma E@erraIP
@@ -458,7 +458,7 @@ public class PrinceNode {
 			String msgFromNode = null;
 			//Message in the form: !@erraIP
 			msgFromNode = new String(datagramPacket.getData(), 0, datagramPacket.getLength());
-			if (msgFromNode == null || msgFromNode.length() == 0 || !msgFromNode.substring(0, 1).equalsIgnoreCase("!")) {
+			if (msgFromNode == null || msgFromNode.length() == 0 || !msgFromNode.substring(0, 1).equalsIgnoreCase(ErraNodeVariables.MSG_SUBJECT_ALIVE)) {
 				System.err.println("Il messaggio del client che risponde di essere attivo e' vuoto o diverso da \'!\'");
 			} else {
 				String ipAddress = datagramPacket.getAddress().getHostAddress();
@@ -495,6 +495,10 @@ public class PrinceNode {
 	private void showNetworkTable() {
 		nodeViewer.showNetwork(nodes, me);
 	}
+	
+	private void updatePrinceState(PrinceState newPrinceState) {
+		currentState = newPrinceState;
+	}
 
 //	TODO gestire uscita elegante del bootstrap
 //	private boolean shutdown() {
@@ -527,8 +531,8 @@ public class PrinceNode {
 	}
 
 	private synchronized void spreadNetworkChanges(ErraNode[] changedNodes, boolean added) {
-		currentState = PrinceState.STATE_SPREADING_CHANGES;
-		String msg = "T" + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR;
+		updatePrinceState(PrinceState.STATE_SPREADING_CHANGES);
+		String msg = ErraNodeVariables.MSG_PRINCE_TABLE_UPDATE + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR;
 		if (added) {
 			msg += "+";
 		} else {
@@ -553,6 +557,6 @@ public class PrinceNode {
 				e.printStackTrace();
 			}
 		}
-		currentState = PrinceState.STATE_RUNNING;
+		updatePrinceState(PrinceState.STATE_RUNNING);
 	}
 }
