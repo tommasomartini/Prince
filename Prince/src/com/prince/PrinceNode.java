@@ -40,8 +40,7 @@ public class PrinceNode {
 //	private static final String BOOTSTRAP_PASSWORD = "lupo";
 
 	//	States
-	private enum PrinceState
-	{
+	private enum PrinceState {
 		STATE_RUNNING,
 		STATE_ROLL_CALLING,
 		STATE_SPREADING_CHANGES,

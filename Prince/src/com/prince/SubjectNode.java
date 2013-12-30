@@ -49,15 +49,15 @@ public class SubjectNode {
 	public static int MINIMUM_PAYLOAD=100;
 	public static int MAX_PAYLOAD=2048000;
 
-//	public static int UDP_PORT_ALIVE=7000;
-//	public static int UDP_ALIVE_ANSWER=8003;
-//
-//	public static int TCP_PORT_WELCOME=7001;
-//	public static int TCP_PORT_FORWARDING=7002;
-//	public static int TCP_PORT_SENDING=7003;
-//	public static int TCP_PORT_REFRESH=7004;
-//	public static int TCP_BOOTSTRAP_PORT_WELCOME=8001;
-//	public static int TCP_BOOTSTRAP_PORT_GOODBYE=8002;
+	//	public static int UDP_PORT_ALIVE=7000;
+	//	public static int UDP_ALIVE_ANSWER=8003;
+	//
+	//	public static int TCP_PORT_WELCOME=7001;
+	//	public static int TCP_PORT_FORWARDING=7002;
+	//	public static int TCP_PORT_SENDING=7003;
+	//	public static int TCP_PORT_REFRESH=7004;
+	//	public static int TCP_BOOTSTRAP_PORT_WELCOME=8001;
+	//	public static int TCP_BOOTSTRAP_PORT_GOODBYE=8002;
 
 	public static String BOOTSTRAP_ADDRESS="192.168.0.4";
 	public static String ERRA_ADDRESS="";
@@ -192,27 +192,29 @@ public class SubjectNode {
 		}
 	}
 
-	private class ErraHost {	
-		public String ipAddress;
-		public String erraAddress;
-		public ErraHost() {
-			ipAddress="";
-			erraAddress="";
-		}
-		public ErraHost(String newIPAddress, String newAddress) {
-			this.ipAddress = newIPAddress;
-			erraAddress = newAddress;
-		}
-	}
+	//	private class ErraHost {	
+	//		public String ipAddress;
+	//		public String erraAddress;
+	//		public ErraHost() {
+	//			ipAddress="";
+	//			erraAddress="";
+	//		}
+	//		public ErraHost(String newIPAddress, String newAddress) {
+	//			this.ipAddress = newIPAddress;
+	//			erraAddress = newAddress;
+	//		}
+	//	}
 
 	//============== Funzione per inizializzare il sistema ERRA e scoprirne la topologia ======================
-	public static boolean initializeErra(String address) {
+
+	private boolean initializeErra(String address) {
+
 		nodes = new HashMap<String, ErraNode>();
 
 		try {
 			Socket tcpClientSocket = new Socket();
 			try {
-				tcpClientSocket.connect(new InetSocketAddress(address, ErraNodeVariables.PORT_PRINCE_JOINED_NODE), CONNECTION_TIMEOUT);
+				tcpClientSocket.connect(new InetSocketAddress(address, ErraNodePorts.PORT_PRINCE_JOINED_NODE), CONNECTION_TIMEOUT);
 			} catch (IOException e) {	
 				System.err.println("Impossibile raggiungere il bootstrap node " + address);
 				tcpClientSocket.close();
@@ -234,7 +236,7 @@ public class SubjectNode {
 				fromServer=fromServer.substring(2);		//Taglio la welcome portion
 				updateStructure(fromServer);		
 			} else {
-				System.err.println("Ho ricevuto sulla porta " + ErraNodeVariables.PORT_PRINCE_JOINED_NODE + " un dato che non e' una tabella della rete!!");
+				System.err.println("Ho ricevuto sulla porta " + ErraNodePorts.PORT_PRINCE_JOINED_NODE + " un dato che non e' una tabella della rete!!");
 			}
 		} catch (ConnectException e) {
 			e.printStackTrace();
@@ -255,7 +257,7 @@ public class SubjectNode {
 		public void run() {	
 			super.run();
 			try {	
-				udpDatagramSocket = new DatagramSocket(ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
+				udpDatagramSocket = new DatagramSocket(ErraNodePorts.PORT_SUBJECT_ALIVE_LISTENER);
 				byte[] receivedData = new byte[1024];
 				byte[] sendData = new byte[1024];
 
@@ -269,7 +271,7 @@ public class SubjectNode {
 					}
 					String message = new String(receivedPacket.getData(), 0, receivedPacket.getLength());
 					if (message.charAt(0) != '?') {
-						System.err.println("Ho ricevuto sulla porta " + ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER + " un pacchetto che non riesco a decodificare.");
+						System.err.println("Ho ricevuto sulla porta " + ErraNodePorts.PORT_SUBJECT_ALIVE_LISTENER + " un pacchetto che non riesco a decodificare.");
 						System.err.println("Il pacchetto e': " + message);
 					} else {
 						String sentence = "!@" + ERRA_ADDRESS;
@@ -294,7 +296,7 @@ public class SubjectNode {
 	//============== Thread per ascoltare se il bootstrap comunica eventuali refresh sulla topologia ============
 
 	private class RefreshTopologyThread extends Thread {
-		
+
 		private ServerSocket serverSpcket;
 		private Socket socket;
 
@@ -303,7 +305,7 @@ public class SubjectNode {
 			super.run();
 			while(true) {
 				try {	
-					serverSpcket = new ServerSocket(ErraNodeVariables.PORT_SUBJECT_REFRESH_TABLE_LISTENER);		//Mi metto in ascolto in attesa di connessioni TCP
+					serverSpcket = new ServerSocket(ErraNodePorts.PORT_SUBJECT_REFRESH_TABLE_LISTENER);		//Mi metto in ascolto in attesa di connessioni TCP
 					try {	
 						socket=serverSpcket.accept();							//Quanto ho una richiesta di connessione la accetto!
 					} catch (SocketException e) {	
@@ -344,7 +346,7 @@ public class SubjectNode {
 						}
 						showTopology();
 					} else {
-						System.err.println("Ho ricevuto sulla porta " + ErraNodeVariables.PORT_SUBJECT_REFRESH_TABLE_LISTENER + " un dato che non e' una tabella della rete!!");
+						System.err.println("Ho ricevuto sulla porta " + ErraNodePorts.PORT_SUBJECT_REFRESH_TABLE_LISTENER + " un dato che non e' una tabella della rete!!");
 					}
 					serverSpcket.close();
 					socket.close();
@@ -365,9 +367,7 @@ public class SubjectNode {
 		}
 	}
 
-
 	//Questo thread ascolta sulla porta 7002. Quando riceve una richiesta di connessione TCP genera un nuovo thread che si occupa di fare forwarding
-
 	private class ListenToForwardThread extends Thread {
 		private ServerSocket serverSocket; 
 		private Socket socket;
@@ -376,7 +376,7 @@ public class SubjectNode {
 		public void run() {
 			super.run();
 			try {
-				serverSocket = new ServerSocket(ErraNodeVariables.PORT_SUBJECT_FILE_FORWARDING);
+				serverSocket = new ServerSocket(ErraNodePorts.PORT_SUBJECT_FILE_FORWARDING);
 
 				while(true) {
 					socket = serverSocket.accept();
@@ -400,20 +400,18 @@ public class SubjectNode {
 
 
 	//Questo thread legge un ERRA PACKET e se e' per me lo tiene, altrimenti fa forwarding
+	private class ForwardThread extends Thread {
 
-	private class ForwardThread extends Thread
-	{
 		private Socket mySocket;
 
-		public ForwardThread(Socket s)
-		{	
-			mySocket=s;
+		public ForwardThread(Socket socket) {	
+			mySocket = socket;
 		}
 
-		public void run()
-		{
-			try
-			{
+		@Override
+		public void run() {
+			super.run();
+			try {
 				/*
 				 * Tutta questa prima parte serve per leggere uno stream di bytes da un socket TCP.
 				 * Il risultato della lettura e' memorizzato nella varibile byte[] packet.
@@ -423,273 +421,208 @@ public class SubjectNode {
 				ByteArrayOutputStream baos = new ByteArrayOutputStream(); 
 				byte[] content = new byte[2048];  
 				int bytesRead = -1;  
-				while((bytesRead = inputStream.read(content))!= -1) 
-				{  
+				while((bytesRead = inputStream.read(content))!= -1) {  
 					baos.write( content, 0, bytesRead );  
 				} 
 
 				byte[] packet=baos.toByteArray();
-
 				byte[] routingL=new byte[4];
 				System.arraycopy(packet, 0, routingL, 0, 4);
-
 				byte[] headerL=new byte[4];
 				System.arraycopy(packet, 4, headerL, 0, 4);
-
 				int rL = ByteBuffer.wrap(routingL).getInt();		//Questo mi esprime il numero di indirizzi IP contenuti nel routing		
 				int hL = ByteBuffer.wrap(headerL).getInt();
 
-				if (rL==1)
-				{
-					byte[] header=new byte[hL];
+				if (rL==1) {
+					byte[] header = new byte[hL];
 					System.arraycopy(packet, 12, header, 0, hL);
-					String sH=new String(header, "US-ASCII");
-					byte[] data=new byte[packet.length-12-hL];
+					String sH = new String(header, "US-ASCII");
+					byte[] data = new byte[packet.length-12-hL];
 					System.arraycopy(packet, 12+hL, data, 0, data.length);
 					FM.add(sH,data);	//Ficco dentro questo frammento all'interno della classe che si occupa di gestire il tutto*/
-				}
-				else
-				{
-					//Il pacchetto non è assolutamente per me, purtroppo
+				} else {
+					//Il pacchetto non e' assolutamente per me, purtroppo
 					//Devo rimuovere il mio IP, ricavare il prossimo e fare il forwarding
-					byte[] next=new byte[4];				//Estraggo il primo IP della catena
+					byte[] next = new byte[4];				//Estraggo il primo IP della catena
 					System.arraycopy(packet, 12, next, 0, 4);		//4byte x Rl, 4 byte per hL, 4 byte mio IP, 4 byte prossimo
-					String nextIP=InetAddress.getByAddress(next).getHostAddress();
-					byte[] forwardPacket=new byte[packet.length-4];	//Il nuovo pacchetto ha solamente l'indirizzo IP in meno!
+					String nextIP = InetAddress.getByAddress(next).getHostAddress();
+					byte[] forwardPacket = new byte[packet.length - 4];	//Il nuovo pacchetto ha solamente l'indirizzo IP in meno!
 
-					byte[] newRoutingLen= new byte[4];
-					newRoutingLen=ByteBuffer.allocate(4).putInt(rL-1).array();
+					byte[] newRoutingLen = new byte[4];
+					newRoutingLen = ByteBuffer.allocate(4).putInt(rL-1).array();
 
 					System.arraycopy(newRoutingLen, 0, forwardPacket, 0, 4);		//Riscrivo la lunghezza del campo routing
 					System.arraycopy(packet, 4, forwardPacket, 4, 4);				//Copio la lunghezza del campo header
 					System.arraycopy(packet, 12, forwardPacket, 8,packet.length-12);		//Riscrivo a partire dal 2° IP tutto quanto
 
-					try
-					{
-						Socket TCPClientSocket = new Socket();
-						TCPClientSocket.connect(new InetSocketAddress(nextIP,TCP_PORT_FORWARDING),CONNECTION_TIMEOUT);
-						OutputStream out = TCPClientSocket.getOutputStream(); 
-						DataOutputStream dos = new DataOutputStream(out);
-						dos.write(forwardPacket, 0, forwardPacket.length);
-						TCPClientSocket.close(); 
-						System.out.println("Forwarding all'indirizzo "+nextIP+" completato.");	
-					}
-					catch (IOException e)
-					{
+					try {
+						Socket tcpClientSocket = new Socket();
+						tcpClientSocket.connect(new InetSocketAddress(nextIP, ErraNodePorts.PORT_SUBJECT_FILE_FORWARDING), CONNECTION_TIMEOUT);
+						OutputStream out = tcpClientSocket.getOutputStream(); 
+						DataOutputStream dataOutputStream = new DataOutputStream(out);
+						dataOutputStream.write(forwardPacket, 0, forwardPacket.length);
+						tcpClientSocket.close(); 
+						System.out.println("Forwarding all'indirizzo " + nextIP + " completato.");	
+					} catch (IOException e) {
 						System.err.println("Forwarding all'indirizzo "+nextIP+" fallito.");	
 					}
 				}
 				return;	
-			}
-			catch (ConnectException e)
-			{
+			} catch (ConnectException e) {
 				e.printStackTrace();
-			}
-			catch (IOException e)
-			{
+			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		}
 	}
-
 
 	//=================== Riceve una stringa contenente la topologia di rete e aggiorna la lista ====================
 
-	public static void updateStructure(String fromServer)
-
-	{
+	private void updateStructure(String fromServer) {
 		nodes.clear();
 		//Ora procedo alla memorizzazione nei vettori della rete
-		while(fromServer.length()>0)
-		{
+		while(fromServer.length() > 0) {
 			//Estraggo host per host le informazioni
-			String IP=fromServer.substring(0,fromServer.indexOf('#'));
-			ErraNode e=new ErraNode(IP);
-			nodes.put(IP,e);
-			fromServer=fromServer.substring(fromServer.indexOf('#')+1);
+			String ipAddress = fromServer.substring(0, fromServer.indexOf('#'));
+			ErraNode erraNode = new ErraNode(ipAddress);
+			nodes.put(ipAddress, erraNode);
+			fromServer = fromServer.substring(fromServer.indexOf('#') + 1);
 		}
 	}
-
 
 	//=================== Segnala al nodo BOOTSTRAP che me ne sto andando ====================
 
-	public static void sayGoodbye() throws UnknownHostException, IOException
-	{
+	private void sayGoodbye() throws UnknownHostException, IOException {
 		//Mi connetto con il bootstrap e gli segnalo la mia dipartita....non mi aspetto niente altro!!
-		Socket TCPClientSocket = new Socket();
-
-		try
-		{
-			TCPClientSocket.connect(new InetSocketAddress(BOOTSTRAP_ADDRESS, TCP_BOOTSTRAP_PORT_GOODBYE),CONNECTION_TIMEOUT);
-			String leaveMessage="E@"+getMyIP();
-			DataOutputStream streamToServer = new DataOutputStream(TCPClientSocket.getOutputStream());
+		Socket tcpClientSocket = new Socket();
+		try {
+			tcpClientSocket.connect(new InetSocketAddress(BOOTSTRAP_ADDRESS, ErraNodePorts.PORT_PRINCE_DEPARTED_NODE), CONNECTION_TIMEOUT);
+			String leaveMessage="E@" + getMyIP();
+			DataOutputStream streamToServer = new DataOutputStream(tcpClientSocket.getOutputStream());
 			streamToServer.writeBytes(leaveMessage + '\n');	
-			TCPClientSocket.close(); 
-		}
-		catch(IOException e)
-		{
+			tcpClientSocket.close(); 
+		} catch(IOException e) {
 			System.err.println("Il bootstrap non e' più raggiungibile");
 		}
-
 	}
 
-
 	//=================== Visualizza a video la topologia di ERRA ====================
-
-	public static void showTopology()
-	{
+	private void showTopology() {
 		System.out.println("=======================================");
-		System.out.println(nodes.size()+" nodi attivi nella rete.");
+		System.out.println(nodes.size() + " nodi attivi nella rete.");
 		System.out.println("IP");
-		for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) 
-		{
+		for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
 			ErraNode currentNode = entry.getValue();
 			System.out.println(currentNode.getIPAddress());
 		}
 		System.out.println("=======================================");
 	}
 
-
 	//=========Questa funzione apre un file e lo spezzetta in pacchetti pronti per essere inviati!
-
-	public static LinkedList<byte[]> wrap(String filename,String erraDest)
-	{
+	private LinkedList<byte[]> wrap(String filename, String erraDest) {
 		File file = new File(filename);
-		if((int)file.length()==0)
+		if ((int)file.length()==0)
 			return null;
 
-		int packets=nodes.size()-2;		//Questa e' la base di partenza
+		int packets = nodes.size() - 2;		//Questa e' la base di partenza
 
-
-		if (nodes.size()<=3)				//Se siamo in 3 o meno, esiste solo un percorso che posso fare da A a B, quindi spezzo in un solo pacchetto!!
-			packets=1;
+		if (nodes.size() <= 3)				//Se siamo in 3 o meno, esiste solo un percorso che posso fare da A a B, quindi spezzo in un solo pacchetto!!
+			packets = 1;
 
 		//Non vogliamo che, anche se ci sono diversi utenti nella rete, il file contenga un payload troppo piccolo
-		while((int)file.length()/packets<MINIMUM_PAYLOAD && packets>1)
-		{
+		while((int)file.length() / packets<MINIMUM_PAYLOAD && packets > 1) {
 			packets--;	
 		}
 
 		//Non vogliamo nemmeno jumbo packets!
-		while((int)file.length()/packets>MAX_PAYLOAD)
-		{
+		while((int)file.length() / packets>MAX_PAYLOAD) {
 			packets++;	
 		}
 
+		int packetsLength=(int)file.length() / packets;
+		int residualPck = 0;
 
-		int packets_length=(int)file.length()/packets;
-		int residual_pck=0;
-
-
-		if ((int)file.length()%packets!=0)
-		{
-			residual_pck=(int)file.length()-packets*packets_length;
-			packets=packets+1;
+		if ((int)file.length() % packets != 0) {
+			residualPck = (int)file.length() - packets * packetsLength;
+			packets = packets + 1;
 		}
 
-		System.out.print("Reading file ["+filename+"]...");
-
+		System.out.print("Reading file [" + filename + "]...");
 		LinkedList<byte[]> pcks= new LinkedList<byte[]>();		//Questa lista contiene i pacchetti pronti per essere spediti
 
-		try 
-		{ 	InputStream input = null;
-		try 
-		{
-			input = new BufferedInputStream(new FileInputStream(file));
-			Random random = new Random();
-			int SN = random.nextInt(5000);
+		try {
+			InputStream input = null;
+			try {
+				input = new BufferedInputStream(new FileInputStream(file));
+				Random random = new Random();
+				int sn = random.nextInt(5000);
 
-			for(int i=0;i<packets;i++)
-			{   byte[] data;
+				for(int i=0; i < packets; i++) {   
+					byte[] data;
+					if (i == packets - 1 && residualPck != 0) {
+						data = new byte[residualPck];
+						input.read(data, 0, residualPck);
+					} else {
+						data = new byte[packetsLength];
+						input.read(data, 0, packetsLength);
+					}
 
-			if (i==packets-1 && residual_pck!=0)
-			{
-				data= new byte[residual_pck];
-				input.read(data,0,residual_pck);
-			}
-			else
-			{
-				data = new byte[packets_length];
-				input.read(data,0,packets_length);		      				
-			}
+					List<ErraNode> list = new ArrayList<ErraNode>(nodes.values());
+					Collections.shuffle(list);
+					int routingLen = (nodes.size() - 1) * 4;
+					byte[] routing = new byte[routingLen];
+					int offset = 0;
+					for (Iterator<ErraNode> it = list.iterator(); it.hasNext();) {
+						ErraNode element = (ErraNode)(it.next());
+						String ipAddress = element.getIPAddress();
+						String myIPAddress = getMyIP();
+						if(!(ipAddress.equals(myIPAddress)) && !(ipAddress.equals(erraDest))) {
+							byte[] bytesIP = InetAddress.getByName(ipAddress).getAddress();
+							System.arraycopy(bytesIP, 0, routing, 4*offset++,4);	
+						}
+					}
+					//Infine copio l'indirizzo IP del in finale!!
+					byte[] bytesIP = InetAddress.getByName(erraDest).getAddress();
+					System.arraycopy(bytesIP, 0, routing, 4*offset,4 );	
 
-			List<ErraNode> list = new ArrayList<ErraNode>(nodes.values());
-			Collections.shuffle(list);
-
-			int routingLen=(nodes.size()-1)*4;
-
-			byte[] routing=new byte[routingLen];
-			int offset=0;
-			for (Iterator<ErraNode> it = list.iterator(); it.hasNext();)
-			{
-				ErraNode element = (ErraNode)(it.next());
-				String IP=element.getIPAddress();
-				String myIPAddress = getMyIP();
-				if(!(IP.equals(myIPAddress)) && !(IP.equals(erraDest)))
-				{
-					byte[] bytesIP = InetAddress.getByName(IP).getAddress();
-					System.arraycopy(bytesIP, 0, routing, 4*offset++,4);	
+					String name = "";
+					if (filename.lastIndexOf('/') != -1) {	//Sono in ambiente LINUX e si usano le / a destra
+						name = filename.substring(filename.lastIndexOf('/') + 1);
+					} else if (filename.lastIndexOf('\\') != -1) {	//Sono in ambiente 	windows e uso le \ a sinistra
+						name = filename.substring(filename.lastIndexOf('\\') + 1);
+					}
+					String header = "";
+					header = Integer.toString(sn + i) + "@" + packets + "@" + name + "@";
+					byte[] headerB = header.getBytes();
+					byte[] headlengthByte = new byte[4];
+					headlengthByte = ByteBuffer.allocate(4).putInt(headerB.length).array();
+					byte[] routingLengthByte = new byte[4];
+					routingLengthByte = ByteBuffer.allocate(4).putInt(routing.length / 4).array();
+					byte[] packet = new byte[8 + routing.length + headerB.length + data.length];
+					System.arraycopy(routingLengthByte, 0, packet, 0, 4);
+					System.arraycopy(headlengthByte, 0, packet, 4, 4);
+					System.arraycopy(routing, 0, packet, 8, routing.length);
+					System.arraycopy(headerB, 0, packet,8+routing.length, headerB.length);
+					System.arraycopy(data, 0, packet, 8+routing.length+headerB.length, data.length);
+					pcks.add(packet);
 				}
+			} finally {	
+				System.out.println("finished: "+(int)file.length()+" bytes successfully read.\nThe file will be splitted into "+packets+" packets.");
+				input.close();
 			}
-			//Infine copio l'indirizzo IP del in finale!!
-			byte[] bytesIP = InetAddress.getByName(erraDest).getAddress();
-			System.arraycopy(bytesIP, 0, routing, 4*offset,4 );	
-
-			String name="";
-			if(filename.lastIndexOf('/')!=-1)
-			{	//Sono in ambiente LINUX e si usano le / a destra
-				name=filename.substring(filename.lastIndexOf('/')+1);
-			}
-			else if(filename.lastIndexOf('\\')!=-1)
-			{	//Sono in ambiente 	windows e uso le \ a sinistra
-				name=filename.substring(filename.lastIndexOf('\\')+1);
-			}
-
-			String header="";
-			header=Integer.toString(SN+i)+"@"+packets+"@"+name+"@";
-
-			byte[] headerB=header.getBytes();
-
-			byte[] headlengthByte= new byte[4];
-			headlengthByte=ByteBuffer.allocate(4).putInt(headerB.length).array();
-
-			byte[] routingLengthByte= new byte[4];
-			routingLengthByte=ByteBuffer.allocate(4).putInt(routing.length/4).array();
-
-			byte[] packet=new byte[8+routing.length+headerB.length+data.length];
-
-			System.arraycopy(routingLengthByte, 0, packet, 0, 4);
-			System.arraycopy(headlengthByte, 0, packet, 4, 4);
-			System.arraycopy(routing, 0, packet, 8, routing.length);
-			System.arraycopy(headerB, 0, packet,8+routing.length, headerB.length);
-			System.arraycopy(data, 0, packet, 8+routing.length+headerB.length, data.length);
-
-			pcks.add(packet);
-			}
-		}
-		finally 
-		{	System.out.println("finished: "+(int)file.length()+" bytes successfully read.\nThe file will be splitted into "+packets+" packets.");
-		input.close();
-		}
-		}
-		catch (FileNotFoundException ex) {
+		} catch (FileNotFoundException ex) {
 			System.out.println("File not found");
 		}
-		catch (IOException ex) 
-		{
+		catch (IOException ex) {
 			System.out.println(ex);
 		}
 		return pcks;
 	}
 
-
 	//=========Questa funzione consente di inviare un file ad un erra host ================
+	private void send() throws UnsupportedEncodingException, UnknownHostException {
 
-	public static void send() throws UnsupportedEncodingException, UnknownHostException 
-	{
-
-		if (nodes.size()<=1)
-		{
+		if (nodes.size() <= 1) {
 			System.out.println("Per inviare un file e' necessario che nella rete vi sia almeno un altro erraHost oltre a te!");
 			return;
 		}
@@ -697,50 +630,45 @@ public class SubjectNode {
 		JFileChooser chooser = new JFileChooser();				//Mostro una finestra per la scelta del file da inviare
 		chooser.setCurrentDirectory(new File("."));
 		int r = chooser.showOpenDialog(new JFrame());
-		if (r == JFileChooser.APPROVE_OPTION) 
-		{
+		if (r == JFileChooser.APPROVE_OPTION) {
 			String path=chooser.getSelectedFile().getPath();
 			System.out.println("Inserire l'IP del destinatario tra quelli elencati.");
 
-			for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) 
-			{
+			for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
 				ErraNode currentNode = entry.getValue();
 				String IP=currentNode.getIPAddress();
 				if (!(IP.equals(getMyIP())))
 					System.out.println(IP);
 			}
 
-			String IPDest="";
+			String ipDest="";
 			boolean valid=false;
-			while (!valid)
-			{
+			while (!valid) {
 				Scanner keyboard = new Scanner(System.in);
 				String input = keyboard.next();
-				if (nodes.containsKey(input) && !input.equals(getMyIP()))
-				{IPDest=input;break;}
-				else
-				{System.err.println("Hai inserito un destinatario non valido, riprova.");}
+				if (nodes.containsKey(input) && !input.equals(getMyIP())) {
+					ipDest=input;break;
+				} else {
+					System.err.println("Hai inserito un destinatario non valido, riprova.");
+				}
 			}
 
-			LinkedList<byte[]> pcks=wrap(path,IPDest);		//Pacchettizzo il file e mi preparo per l'invio
+			LinkedList<byte[]> pcks=wrap(path,ipDest);		//Pacchettizzo il file e mi preparo per l'invio
 
-			if (pcks==null || pcks.size()==0)
-			{
+			if (pcks==null || pcks.size()==0) {
 				System.err.println("Impossibile acquisire il file specificato.");
 				return;
 			}
 
 			int i=1;
-			for (Iterator<byte[]> it = pcks.iterator(); it.hasNext();)
-			{
+			for (Iterator<byte[]> it = pcks.iterator(); it.hasNext();) {
 				byte[] packet = (byte[])(it.next());
 				byte[] next=new byte[4];				//Estraggo il primo IP della catena
 				System.arraycopy(packet, 8, next, 0, 4);
 				String nextIP=InetAddress.getByAddress(next).getHostAddress();
-				try
-				{	
+				try {	
 					Socket TCPClientSocket = new Socket();
-					TCPClientSocket.connect(new InetSocketAddress(nextIP,TCP_PORT_FORWARDING),CONNECTION_TIMEOUT);
+					TCPClientSocket.connect(new InetSocketAddress(nextIP, ErraNodePorts.PORT_SUBJECT_FILE_FORWARDING), CONNECTION_TIMEOUT);
 					OutputStream out = TCPClientSocket.getOutputStream(); 
 					DataOutputStream dos = new DataOutputStream(out);
 					dos.write(packet, 0, packet.length);
