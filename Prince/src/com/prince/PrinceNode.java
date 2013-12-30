@@ -25,7 +25,7 @@ import java.util.TimerTask;
 import com.prince.ErraNode.NodeState;
 import com.prince.ErraNode.NodeType;
 
-public class BootstrapNode extends NewErraClient {
+public class PrinceNode extends NewErraClient {
 
 	private boolean DEBUG = false;
 	private boolean ACTIVE_ALIVE_RQST = true;
@@ -43,14 +43,14 @@ public class BootstrapNode extends NewErraClient {
 //	private static final String BOOTSTRAP_PASSWORD = "lupo";
 
 	//	States
-	private enum BootstrapState
+	private enum PrinceState
 	{
 		STATE_RUNNING,
 		STATE_ROLL_CALLING,
 		STATE_SPREADING_CHANGES,
 		STATE_SHUTTING_DOWN
 	}
-	private static BootstrapState currentState;
+	private static PrinceState currentState;
 
 	private ErraNode me;
 
@@ -67,13 +67,11 @@ public class BootstrapNode extends NewErraClient {
 	//	Speaking threads
 	private AliveAskerThread aliveAskerThread;
 
-	//	Storage and registers
-	//private Map<String, ErraNode> nodes;
 	private Map<String, ErraNode.NodeState> rollCallRegister;	// "registro per fare l'appello"
 
 	private NodeViewer nodeViewer;
 
-	private BootstrapNode() 
+	private PrinceNode() 
 	{
 		try {
 //			Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
@@ -99,7 +97,7 @@ public class BootstrapNode extends NewErraClient {
 
 		nodeViewer = new NodeViewer();
 
-		currentState = BootstrapState.STATE_RUNNING;
+		currentState = PrinceState.STATE_RUNNING;
 
 		joinedNodeListenerThread = new JoinedNodeListenerThread();
 		departedNodeListenerThread = new DepartedNodeListenerThread();
@@ -114,12 +112,12 @@ public class BootstrapNode extends NewErraClient {
 		listenToForward f = new listenToForward();
 		f.start();
 
-		BootstrapNode bootstrapNode = new BootstrapNode();
-		bootstrapNode.runBootstrap();
+		PrinceNode princeNode = new PrinceNode();
+		princeNode.runPrinceNode();
 	}	// main()
 
-	private void runBootstrap() {
-		System.out.println("#Bootstrap " + me.getIPAddress() + " activated. Time: " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime()));
+	private void runPrinceNode() {
+		System.out.println("#Prince " + me.getIPAddress() + " activated. Time: " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime()));
 		nodeViewer.showNetwork(nodes, me);
 		joinedNodeListenerThread.start();
 		departedNodeListenerThread.start();
@@ -273,7 +271,7 @@ public class BootstrapNode extends NewErraClient {
 		@Override
 		public void run() {
 			super.run();
-			currentState = BootstrapState.STATE_ROLL_CALLING;
+			currentState = PrinceState.STATE_ROLL_CALLING;
 			for (Map.Entry<String, NodeState> entry : rollCallRegister.entrySet()) {
 				updateRegister(entry.getKey(), NodeState.NODE_STATE_MISSING);
 			}
@@ -346,7 +344,7 @@ public class BootstrapNode extends NewErraClient {
 					spreadNetworkChanges(deadNodes, false);
 				}
 
-				currentState = BootstrapState.STATE_RUNNING;
+				currentState = PrinceState.STATE_RUNNING;
 
 			} catch (SocketException e) {
 				e.printStackTrace();
@@ -393,7 +391,7 @@ public class BootstrapNode extends NewErraClient {
 					ErraNode node = new ErraNode(ipString, NodeType.NODE_TYPE_SUBJECT, NodeState.NODE_STATE_ALIVE);
 					node.setInMyCounty(true);
 					node.setBootstrapOwner(me);
-					while (currentState != BootstrapState.STATE_RUNNING) {
+					while (currentState != PrinceState.STATE_RUNNING) {
 						try {
 							sleep(DELAY_WAIT_FOR_CALLING_TO_FINISH);
 						} catch (InterruptedException e) {
@@ -441,7 +439,7 @@ public class BootstrapNode extends NewErraClient {
 				// messaggio nella forma E@erraIP
 				String[] segments = msgFromNode.split(DELIMITER_AFTER_MSG_CHAR);
 				String ipAddress = segments[1];
-				while (currentState != BootstrapState.STATE_RUNNING) {
+				while (currentState != PrinceState.STATE_RUNNING) {
 					try {
 						sleep(DELAY_WAIT_FOR_CALLING_TO_FINISH);
 					} catch (InterruptedException e) {
@@ -549,7 +547,7 @@ public class BootstrapNode extends NewErraClient {
 
 	// T@+[-]erraID#erraIP%erraID#erraIP%erraID#erraIP%...
 	private synchronized void spreadNetworkChanges(ErraNode[] changedNodes, boolean added) {
-		currentState = BootstrapState.STATE_SPREADING_CHANGES;
+		currentState = PrinceState.STATE_SPREADING_CHANGES;
 		String msg = "T" + DELIMITER_AFTER_MSG_CHAR;
 		if (added) {
 			msg += "+";
@@ -575,6 +573,6 @@ public class BootstrapNode extends NewErraClient {
 				e.printStackTrace();
 			}
 		}
-		currentState = BootstrapState.STATE_RUNNING;
+		currentState = PrinceState.STATE_RUNNING;
 	}
 }

@@ -13,7 +13,7 @@ import java.net.UnknownHostException;
 
 public class ClientAliveTest {
 
-	private static final String BOOTSTRAP_ADDRESS = "192.168.1.112";
+	private static final String BOOTSTRAP_ADDRESS = "192.168.1.223";
 
 	private AnswerAliveThread answerAliveThread;
 	private InetAddress bootstrapInetAddress;
@@ -36,7 +36,7 @@ public class ClientAliveTest {
 
 	private void runClientAliveTest() {
 		try {
-			Socket joinSocket = new Socket(bootstrapInetAddress, ErraNodePorts.PORT_BOOTSTRAP_JOINED_NODE, InetAddress.getLocalHost(), ErraNodePorts.PORT_SUBJECT_HELLO);
+			Socket joinSocket = new Socket(bootstrapInetAddress, ErraNodePorts.PORT_PRINCE_JOINED_NODE, InetAddress.getLocalHost(), ErraNodePorts.PORT_SUBJECT_HELLO);
 			PrintStream toBootstrap = new PrintStream(joinSocket.getOutputStream());
 			String msgToBootstrap = "J";
 			toBootstrap.println(msgToBootstrap);
