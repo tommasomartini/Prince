@@ -25,7 +25,7 @@ import java.util.TimerTask;
 import com.prince.ErraNode.NodeState;
 import com.prince.ErraNode.NodeType;
 
-public class PrinceNode {
+public class PrinceNode extends erraClient {
 
 	private boolean DEBUG = false;
 	private boolean ACTIVE_ALIVE_RQST = true;
@@ -102,11 +102,11 @@ public class PrinceNode {
 
 	public static void main(String[] args) {
 		// ErraClient functions	TODO attivare queste funzioni!
-//		answerAliveRequest A=new answerAliveRequest();
-//		A.start();
-//		FM = new fileManager();
-//		listenToForward f = new listenToForward();
-//		f.start();
+		answerAliveRequest A=new answerAliveRequest();
+		A.start();
+		FM = new fileManager();
+		listenToForward f = new listenToForward();
+		f.start();
 
 		PrinceNode princeNode = new PrinceNode();
 		princeNode.runPrinceNode();
@@ -255,6 +255,10 @@ public class PrinceNode {
 			}
 		}
 	}	// AliveNodeListenerThread
+	
+	private class KeyboardListenerThread extends Thread {
+		
+	}
 
 	/*
 	 * Speaking Threads
@@ -467,7 +471,7 @@ public class PrinceNode {
 			}
 		}
 	}	// NotifiedAliveNodeThread
-
+	
 	/*
 	 * ****************************************************************************
 	 * END THREADS
