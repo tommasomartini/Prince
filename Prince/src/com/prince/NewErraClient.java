@@ -75,19 +75,19 @@ public class NewErraClient
 	public static class file
 	{	public String fileName;
 		public int packets;
-		public Date addDate;
+		public java.util.Date addDate;
 		private List<filePart> parts = new ArrayList<filePart>();
 		
 		public file()
 		{
-			fileName="";packets=0;addDate=(Date) Calendar.getInstance().getTime();
+			fileName="";packets=0;addDate=(java.util.Date) Calendar.getInstance().getTime();
 		}
 
 		public file(String name,int n)
 		{
 			fileName=name;
 			packets=n;
-			addDate=(Date) Calendar.getInstance().getTime();
+			addDate=(java.util.Date) Calendar.getInstance().getTime();
 		}
 		
 		public boolean add(int SN,byte[] data) 			//Restituisco true se l'aggiunta del pacchetto ha completato il file
@@ -454,7 +454,7 @@ public class NewErraClient
 					 SocketAddress A=s.getRemoteSocketAddress();
 					 String IP=A.toString().substring(1, A.toString().indexOf(":"));
 					 //TODO da testare questo caso
-					 if (!(nodes.containsValue(IP)))
+					 if (!(nodes.containsKey(IP)))
 					 {
 						 System.err.println("Richiesta abusiva, pacchetto non inoltrato");
 					 }
