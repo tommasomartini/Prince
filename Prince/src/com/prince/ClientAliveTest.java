@@ -17,7 +17,6 @@ public class ClientAliveTest {
 
 	private AnswerAliveThread answerAliveThread;
 	private InetAddress bootstrapInetAddress;
-	private int myErraID;
 	private DatagramSocket aliveDatagramSocket;
 
 	private ClientAliveTest() {
@@ -36,7 +35,7 @@ public class ClientAliveTest {
 
 	private void runClientAliveTest() {
 		try {
-			Socket joinSocket = new Socket(bootstrapInetAddress, ErraNodePorts.PORT_BOOTSTRAP_JOINED_NODE, InetAddress.getLocalHost(), ErraNodePorts.PORT_SUBJECT_HELLO);
+			Socket joinSocket = new Socket(bootstrapInetAddress, ErraNodeVariables.PORT_PRINCE_JOINED_NODE, InetAddress.getLocalHost(), ErraNodeVariables.PORT_SUBJECT_HELLO);
 			PrintStream toBootstrap = new PrintStream(joinSocket.getOutputStream());
 			String msgToBootstrap = "J";
 			toBootstrap.println(msgToBootstrap);
@@ -46,8 +45,7 @@ public class ClientAliveTest {
 				msgFromBootstrap = fromBootstrap.readLine();
 				String[] segments = msgFromBootstrap.split("@");
 				if (segments[0].equalsIgnoreCase("W")) {
-					myErraID = Integer.parseInt(segments[1]);
-					System.out.println("Connessione avvenuta con succeso. Id numero: " + myErraID);
+					System.out.println("Connessione avvenuta con successo.");
 					break;
 				} else {
 					System.out.println("Messaggio sconosciuto: " + msgFromBootstrap);
@@ -66,7 +64,7 @@ public class ClientAliveTest {
 		public AnswerAliveThread() {
 			super();
 			try {
-				aliveDatagramSocket = new DatagramSocket(ErraNodePorts.PORT_SUBJECT_ALIVE_LISTENER);
+				aliveDatagramSocket = new DatagramSocket(ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
 			} catch (SocketException e) {
 				e.printStackTrace();
 			}
@@ -77,15 +75,23 @@ public class ClientAliveTest {
 			super.run();
 			byte[] receiverBuffer = new byte[10];
 			try {
+				int counter = 3;
 				while (true) {
 					DatagramPacket receivedPacket = new DatagramPacket(receiverBuffer, receiverBuffer.length);
 					aliveDatagramSocket.receive(receivedPacket);
 					String msgFromBootstrap = new String(receivedPacket.getData(), 0, receivedPacket.getLength());
 					if (msgFromBootstrap.equalsIgnoreCase("?")) {
-						System.out.println("icevuta richiesta di alive...");
-						byte[] msgToBootstrap = new String("!@" + myErraID).getBytes();
-						DatagramPacket sendingPacket = new DatagramPacket(msgToBootstrap, msgToBootstrap.length);
-						aliveDatagramSocket.send(sendingPacket);
+						System.out.print("Ricevuta richiesta di alive... ");
+						byte[] msgToBootstrap = new String("!").getBytes();
+						DatagramPacket sendingPacket = new DatagramPacket(msgToBootstrap, msgToBootstrap.length, bootstrapInetAddress, ErraNodeVariables.PORT_PRINCE_ALIVE_NODE);
+						if (counter == 0) {
+							aliveDatagramSocket.send(sendingPacket);
+							System.out.println("risposto!");
+							counter = 3;
+						} else {
+							System.out.println("non rispondo questo volta.");
+						}
+						counter--;
 					} else {
 						System.out.println("Ricevuta richiesta sconosciuta sulla porta di alive");
 						break;

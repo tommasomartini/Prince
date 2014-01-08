@@ -24,6 +24,7 @@ import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
@@ -281,7 +282,7 @@ public class NewErraClient
 	
 	//============== Thread per la gestione delle risposte UDP al bootstrap ==========
 
-	public static class answerAliveRequest extends Thread
+	public static final class answerAliveRequest extends Thread
 	{	
 		private static DatagramSocket UDP;
 		
@@ -449,8 +450,19 @@ public class NewErraClient
 				while(true)
 				{
 					 s = serverSocket.accept();
-					 forward F=new forward(s);
-					 F.start();
+					 SocketAddress A=s.getRemoteSocketAddress();
+
+					 //TODO da testare questo caso
+					 if (!(nodes.containsValue(A.toString())))
+					 {
+						 System.err.println("Richiesta abusiva, pacchetto non inoltrato");
+					 }
+					 else
+					 {
+						 System.out.println("Faccio il forwarding di un pacchetto autorizzato che proviene da "+A.toString());
+						 forward F=new forward(s);
+						 F.start();
+					 }
 				}
 			}
 			catch (IOException e)
@@ -510,6 +522,7 @@ public class NewErraClient
 				
 				if (rL==1)
 				{
+					//Il pacchetto ha raggiunto il destinatario, che sono io!
 					byte[] header=new byte[hL];
 					System.arraycopy(packet, 12, header, 0, hL);
 					String sH=new String(header, "US-ASCII");
@@ -524,6 +537,15 @@ public class NewErraClient
 					byte[] next=new byte[4];				//Estraggo il primo IP della catena
 				    System.arraycopy(packet, 12, next, 0, 4);		//4byte x Rl, 4 byte per hL, 4 byte mio IP, 4 byte prossimo
 				    String nextIP=InetAddress.getByAddress(next).getHostAddress();
+				    
+				    ErraNode E = new ErraNode(nextIP);
+				    if (!(nodes.containsValue(E)))
+				    {
+				    	System.err.println("Devo fare il forwarding ad un host che non appartiene più alla topologia della rete.");
+				    	System.err.println("Il pacchetto viene droppato");
+				    	return;
+				    }
+
 				    byte[] forwardPacket=new byte[packet.length-4];	//Il nuovo pacchetto ha solamente l'indirizzo IP in meno!
 				    
 				    byte[] newRoutingLen= new byte[4];
@@ -546,6 +568,10 @@ public class NewErraClient
 					catch (IOException e)
 					{
 						System.err.println("Forwarding all'indirizzo "+nextIP+" fallito.");	
+						
+						//Qui bisogna provare a fare il recovery del file.
+						
+						
 					}
 				}
 				return;	
@@ -912,7 +938,7 @@ public class NewErraClient
 	public static void main(String[] args) throws InterruptedException, IOException
 	{	
 		
-		boolean esito=initializeErra("192.168.0.4");
+		boolean esito=initializeErra("127.0.0.1");
 
 		if (!esito)
 		{

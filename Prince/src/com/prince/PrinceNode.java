@@ -25,32 +25,28 @@ import java.util.TimerTask;
 import com.prince.ErraNode.NodeState;
 import com.prince.ErraNode.NodeType;
 
-public class BootstrapNode extends NewErraClient {
+public class PrinceNode extends NewErraClient {
 
 	private boolean DEBUG = false;
 	private boolean ACTIVE_ALIVE_RQST = true;
-	
-	private static final String DELIMITER_AFTER_MSG_CHAR = "@";
-	private static final String DELIMITER_MSG_PARAMS = "#";
 
 	//	Times and periods in milliseconds
-	private static final long DELAY_ASK_FOR_ALIVE = 1000 * 1;	// seconds
-	private static final long PERIOD_ASK_FOR_ALIVE = 1000 * 20;
-	private static final long PERIOD_ASK_FOR_ALIVE_AGAIN = 1000 * 3;
+	private static final long DELAY_ASK_FOR_ALIVE = 1000 * 3;	// seconds
+	private static final long PERIOD_ASK_FOR_ALIVE = 1000 * 15;
+	private static final long PERIOD_ASK_FOR_ALIVE_AGAIN = 1000 * 2;
 	private static final int TIMES_TO_ASK_AGAIN = 3;
 	private static final long DELAY_WAIT_FOR_CALLING_TO_FINISH = 1000 * 1;	// if I have to update the tables and the Bootstrap is not on "running" mode I'll wait for this time before attempting again to access tables
 
 //	private static final String BOOTSTRAP_PASSWORD = "lupo";
 
 	//	States
-	private enum BootstrapState
-	{
+	private enum PrinceState {
 		STATE_RUNNING,
 		STATE_ROLL_CALLING,
 		STATE_SPREADING_CHANGES,
 		STATE_SHUTTING_DOWN
 	}
-	private static BootstrapState currentState;
+	private static PrinceState currentState;
 
 	private ErraNode me;
 
@@ -67,14 +63,12 @@ public class BootstrapNode extends NewErraClient {
 	//	Speaking threads
 	private AliveAskerThread aliveAskerThread;
 
-	//	Storage and registers
-	//private Map<String, ErraNode> nodes;
+	private Map<String, ErraNode> nodes;
 	private Map<String, ErraNode.NodeState> rollCallRegister;	// "registro per fare l'appello"
 
 	private NodeViewer nodeViewer;
 
-	private BootstrapNode() 
-	{
+	private PrinceNode() {
 		try {
 //			Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
 //			while(networkInterfaces.hasMoreElements()) {
@@ -99,7 +93,7 @@ public class BootstrapNode extends NewErraClient {
 
 		nodeViewer = new NodeViewer();
 
-		currentState = BootstrapState.STATE_RUNNING;
+		currentState = PrinceState.STATE_RUNNING;
 
 		joinedNodeListenerThread = new JoinedNodeListenerThread();
 		departedNodeListenerThread = new DepartedNodeListenerThread();
@@ -107,19 +101,19 @@ public class BootstrapNode extends NewErraClient {
 	}	// BootstrapNode()
 
 	public static void main(String[] args) {
-		// ErraClient functions
+		// ErraClient functions	TODO attivare queste funzioni!
 		answerAliveRequest A=new answerAliveRequest();
 		A.start();
 		FM = new fileManager();
 		listenToForward f = new listenToForward();
 		f.start();
 
-		BootstrapNode bootstrapNode = new BootstrapNode();
-		bootstrapNode.runBootstrap();
+		PrinceNode princeNode = new PrinceNode();
+		princeNode.runPrinceNode();
 	}	// main()
 
-	private void runBootstrap() {
-		System.out.println("#Bootstrap " + me.getIPAddress() + " activated. Time: " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime()));
+	private void runPrinceNode() {
+		System.out.println("#Prince " + me.getIPAddress() + " activated. Time: " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime()));
 		nodeViewer.showNetwork(nodes, me);
 		joinedNodeListenerThread.start();
 		departedNodeListenerThread.start();
@@ -261,6 +255,10 @@ public class BootstrapNode extends NewErraClient {
 			}
 		}
 	}	// AliveNodeListenerThread
+	
+	private class KeyboardListenerThread extends Thread {
+//		TODO
+	}
 
 	/*
 	 * Speaking Threads
@@ -273,24 +271,23 @@ public class BootstrapNode extends NewErraClient {
 		@Override
 		public void run() {
 			super.run();
-			currentState = BootstrapState.STATE_ROLL_CALLING;
+			updatePrinceState(PrinceState.STATE_ROLL_CALLING);
 			for (Map.Entry<String, NodeState> entry : rollCallRegister.entrySet()) {
 				updateRegister(entry.getKey(), NodeState.NODE_STATE_MISSING);
 			}
 			try {
 				DatagramSocket datagramSocket = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_ASK_ALIVE_NODES);
 				DatagramPacket datagramPacket;
-				byte[] msg = (new String("?")).getBytes();
+				byte[] msg = (new String(ErraNodeVariables.MSG_PRINCE_ALIVE_REQUEST)).getBytes();
 				for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
 					ErraNode currentNode = entry.getValue();
 					datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(currentNode.getIPAddress()), ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
 					datagramSocket.send(datagramPacket);
 				}
-
 				int rollCallingCounter = TIMES_TO_ASK_AGAIN;
 				boolean stillMissingNodes = true;
 				List<String> missingNodes = new LinkedList<String>();
-				while (rollCallingCounter > 0 && stillMissingNodes) {
+				while (rollCallingCounter >= 0 && stillMissingNodes) {
 					System.out.println("Waiting for alive answers...");
 					Thread.sleep(PERIOD_ASK_FOR_ALIVE_AGAIN);
 					for (Map.Entry<String, NodeState> registerEntry : rollCallRegister.entrySet()) {
@@ -303,36 +300,19 @@ public class BootstrapNode extends NewErraClient {
 
 					if (missingNodes.isEmpty()) {
 						stillMissingNodes = false;
-						System.out.println("No missing nodes. (Thread: " + threadId + ")"); // TODO remove me!!!
-					} else {
+						System.out.println("No missing nodes."); // TODO remove me!!!
+					} else if (rollCallingCounter > 0) {	// send again
 						int numRqst = TIMES_TO_ASK_AGAIN - rollCallingCounter + 1;
-						System.out.println("Missing nodes! Send request bis number: " + numRqst + "/" + TIMES_TO_ASK_AGAIN + " (Thread: " + threadId + ")"); // TODO remove me!!!
+						System.out.println("Missing nodes! Send request bis number: " + numRqst + "/" + TIMES_TO_ASK_AGAIN + " to the following nodes:"); // TODO remove me!!!
 						for (Iterator<String> iterator = missingNodes.iterator(); iterator.hasNext();) {
 							String missingNodeIPAddress = (String)iterator.next();
-							System.out.println("Node: " + missingNodeIPAddress + " still missing.");
+							System.out.println("- " + missingNodeIPAddress);
 							datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(missingNodeIPAddress), ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
 							datagramSocket.send(datagramPacket);
-						}
-						rollCallingCounter--;
-
-						// FIXME da correggere. messo qua perche funzioni
-						for (Map.Entry<String, NodeState> registerEntry : rollCallRegister.entrySet()) {
-							if (registerEntry.getValue() == NodeState.NODE_STATE_MISSING && !missingNodes.contains(registerEntry.getKey())) {
-								missingNodes.add(registerEntry.getKey());
-							} else if (registerEntry.getValue() == NodeState.NODE_STATE_ALIVE && missingNodes.contains(registerEntry.getKey())) {
-								missingNodes.remove(registerEntry.getKey());
-							}
-						}
-
-						if (missingNodes.isEmpty()) {
-							stillMissingNodes = false;
-							System.out.println("Non mancano nodi. (Thread: " + threadId + ")"); // TODO remove me!!!
-						}
-						// FIXME						
+						}						
 					}
+					rollCallingCounter--;
 				}
-
-				datagramSocket.close();
 
 				if (stillMissingNodes) {
 					ErraNode[] deadNodes = new ErraNode[missingNodes.size()];
@@ -340,13 +320,17 @@ public class BootstrapNode extends NewErraClient {
 					for (Iterator<String> iterator = missingNodes.iterator(); iterator.hasNext();) {
 						String missingNodeIPAddress = (String)iterator.next();
 						deadNodes[indexMissingNodes] = removeErraNode(missingNodeIPAddress);
+						byte[] exileMsg = ErraNodeVariables.MSG_PRINCE_EXILED_NODE.getBytes();
+						DatagramPacket exilePacket = new DatagramPacket(exileMsg, exileMsg.length, InetAddress.getByName(missingNodeIPAddress), ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
+						datagramSocket.send(exilePacket);
 						System.out.println("Node " + missingNodeIPAddress + " lost!");
 						indexMissingNodes++;
 					}
 					spreadNetworkChanges(deadNodes, false);
 				}
 
-				currentState = BootstrapState.STATE_RUNNING;
+				datagramSocket.close();
+				updatePrinceState(PrinceState.STATE_RUNNING);
 
 			} catch (SocketException e) {
 				e.printStackTrace();
@@ -384,7 +368,7 @@ public class BootstrapNode extends NewErraClient {
 				e.printStackTrace();
 			}
 
-			if (msgFromNode == null || msgFromNode.length() == 0 || !msgFromNode.equalsIgnoreCase("J")) {
+			if (msgFromNode == null || msgFromNode.length() == 0 || !msgFromNode.equalsIgnoreCase(ErraNodeVariables.MSG_SUBJECT_JOIN_REQUEST)) {
 				System.err.println("Il messaggio del client che chiede di aggiungersi alla rete e' vuoto o diverso da \'J\'");
 			} else {
 				InetAddress inetAddress = socket.getInetAddress();
@@ -393,7 +377,7 @@ public class BootstrapNode extends NewErraClient {
 					ErraNode node = new ErraNode(ipString, NodeType.NODE_TYPE_SUBJECT, NodeState.NODE_STATE_ALIVE);
 					node.setInMyCounty(true);
 					node.setBootstrapOwner(me);
-					while (currentState != BootstrapState.STATE_RUNNING) {
+					while (currentState != PrinceState.STATE_RUNNING) {
 						try {
 							sleep(DELAY_WAIT_FOR_CALLING_TO_FINISH);
 						} catch (InterruptedException e) {
@@ -405,7 +389,7 @@ public class BootstrapNode extends NewErraClient {
 				}
 				try {
 					PrintStream toNode = new PrintStream(socket.getOutputStream());
-					String table = "W" + DELIMITER_AFTER_MSG_CHAR + getNodesMapToString();
+					String table = ErraNodeVariables.MSG_PRINCE_WELCOME + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR + getNodesMapToString();
 					toNode.println(table);
 					toNode.close();
 					socket.close();
@@ -435,13 +419,13 @@ public class BootstrapNode extends NewErraClient {
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-			if (msgFromNode == null || msgFromNode.length() == 0 || !msgFromNode.substring(0, 1).equalsIgnoreCase("E")) {
+			if (msgFromNode == null || msgFromNode.length() == 0 || !msgFromNode.substring(0, 1).equalsIgnoreCase(ErraNodeVariables.MSG_SUBJECT_DEPART_REQUEST)) {
 				System.err.println("Il messaggio del client che chiede di aggiungersi alla rete e' vuoto o diverso da \'E\'");
 			} else {
 				// messaggio nella forma E@erraIP
-				String[] segments = msgFromNode.split(DELIMITER_AFTER_MSG_CHAR);
+				String[] segments = msgFromNode.split(ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR);
 				String ipAddress = segments[1];
-				while (currentState != BootstrapState.STATE_RUNNING) {
+				while (currentState != PrinceState.STATE_RUNNING) {
 					try {
 						sleep(DELAY_WAIT_FOR_CALLING_TO_FINISH);
 					} catch (InterruptedException e) {
@@ -449,13 +433,16 @@ public class BootstrapNode extends NewErraClient {
 					}
 				}
 				ErraNode removedNode = removeErraNode(ipAddress);
-				if (removedNode != null) {
-					System.out.println("Node " + ipAddress + " removed from the network.");
-					spreadNetworkChanges(new ErraNode[]{removedNode}, false);
-				} else {
-					System.err.println("Node " + ipAddress + " not in the network.");
-				}
 				try {
+					if (removedNode != null) {
+						System.out.println("Node " + ipAddress + " removed from the network.");
+						PrintStream toExiledNode = new PrintStream(socket.getOutputStream());
+						String exileMsg = ErraNodeVariables.MSG_PRINCE_EXILED_NODE;
+						toExiledNode.println(exileMsg);
+						spreadNetworkChanges(new ErraNode[]{removedNode}, false);
+					} else {
+						System.err.println("Node " + ipAddress + " not in the network.");
+					}
 					socket.close();
 				} catch (IOException e) {
 					e.printStackTrace();
@@ -471,6 +458,7 @@ public class BootstrapNode extends NewErraClient {
 		public NotifiedAliveNodeThread(DatagramPacket newDatagramPacket) {
 			super();
 			datagramPacket = newDatagramPacket;
+			this.setName(this.getClass().getName());
 		}
 
 		@Override
@@ -479,7 +467,7 @@ public class BootstrapNode extends NewErraClient {
 			String msgFromNode = null;
 			//Message in the form: !@erraIP
 			msgFromNode = new String(datagramPacket.getData(), 0, datagramPacket.getLength());
-			if (msgFromNode == null || msgFromNode.length() == 0 || !msgFromNode.substring(0, 1).equalsIgnoreCase("!")) {
+			if (msgFromNode == null || msgFromNode.length() == 0 || !msgFromNode.substring(0, 1).equalsIgnoreCase(ErraNodeVariables.MSG_SUBJECT_ALIVE)) {
 				System.err.println("Il messaggio del client che risponde di essere attivo e' vuoto o diverso da \'!\'");
 			} else {
 				String ipAddress = datagramPacket.getAddress().getHostAddress();
@@ -488,7 +476,7 @@ public class BootstrapNode extends NewErraClient {
 			}
 		}
 	}	// NotifiedAliveNodeThread
-
+	
 	/*
 	 * ****************************************************************************
 	 * END THREADS
@@ -507,14 +495,18 @@ public class BootstrapNode extends NewErraClient {
 		String mapToString = "";
 		for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
 			ErraNode currentNode = entry.getValue();
-			mapToString += currentNode.getIPAddress()+ DELIMITER_MSG_PARAMS;
+			mapToString += currentNode.getIPAddress() + ErraNodeVariables.DELIMITER_MSG_PARAMS;
 		}
-		mapToString += me.getIPAddress() + DELIMITER_MSG_PARAMS;	// add me
+		mapToString += me.getIPAddress() + ErraNodeVariables.DELIMITER_MSG_PARAMS;	// add me
 		return mapToString;
 	}
 
 	private void showNetworkTable() {
 		nodeViewer.showNetwork(nodes, me);
+	}
+	
+	private void updatePrinceState(PrinceState newPrinceState) {
+		currentState = newPrinceState;
 	}
 
 //	TODO gestire uscita elegante del bootstrap
@@ -547,10 +539,9 @@ public class BootstrapNode extends NewErraClient {
 		rollCallRegister.put(erraIPAddress, nodeState);
 	}
 
-	// T@+[-]erraID#erraIP%erraID#erraIP%erraID#erraIP%...
 	private synchronized void spreadNetworkChanges(ErraNode[] changedNodes, boolean added) {
-		currentState = BootstrapState.STATE_SPREADING_CHANGES;
-		String msg = "T" + DELIMITER_AFTER_MSG_CHAR;
+		updatePrinceState(PrinceState.STATE_SPREADING_CHANGES);
+		String msg = ErraNodeVariables.MSG_PRINCE_TABLE_UPDATE + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR;
 		if (added) {
 			msg += "+";
 		} else {
@@ -558,7 +549,7 @@ public class BootstrapNode extends NewErraClient {
 		}
 		for (int i = 0; i < changedNodes.length; i++) {
 			ErraNode changedNode = changedNodes[i];
-			msg += changedNode.getIPAddress() + DELIMITER_MSG_PARAMS;
+			msg += changedNode.getIPAddress() + ErraNodeVariables.DELIMITER_MSG_PARAMS;
 		}
 		Socket socket;
 		for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
@@ -575,6 +566,6 @@ public class BootstrapNode extends NewErraClient {
 				e.printStackTrace();
 			}
 		}
-		currentState = BootstrapState.STATE_RUNNING;
+		updatePrinceState(PrinceState.STATE_RUNNING);
 	}
 }
