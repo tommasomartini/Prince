@@ -1,6 +1,9 @@
 package com.prince;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
@@ -21,6 +24,9 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
+
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
 
 import com.prince.ErraNode.NodeState;
 import com.prince.ErraNode.NodeType;
@@ -64,18 +70,24 @@ public class PrinceNode extends NewErraClient {
 	//	Speaking threads
 	private AliveAskerThread aliveAskerThread;
 
-	private Map<String, ErraNode> nodes;
+//	private Map<String, ErraNode> nodes;
 	private Map<String, ErraNode.NodeState> rollCallRegister;	// "registro per fare l'appello"
-
+	private Map<String, ErraNode> princes;	// other active bootstraps	TODO serve davvero??
+	
 	private NodeViewer nodeViewer;
 
 	private PrinceNode() {
 
 		String myIPAddress = getMyIP();
+		System.out.println("my ip " + myIPAddress);
 		me = new ErraNode(myIPAddress, NodeType.NODE_TYPE_PRINCE, NodeState.NODE_STATE_ALIVE);	
+		me.setInMyCounty(true);
 		
 		nodes = new HashMap<String, ErraNode>();
 		rollCallRegister = new HashMap<String, NodeState>();
+		princes = new HashMap<String, ErraNode>();
+		
+		findOtherPrinces();
 
 		nodeViewer = new NodeViewer();
 
@@ -271,7 +283,8 @@ public class PrinceNode extends NewErraClient {
 					if (aliveMsg.equals(ErraNodeVariables.MSG_PRINCE_ALIVE_REQUEST)) {
 						String answerString = ErraNodeVariables.MSG_PRINCE_ALIVE_REQUEST + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR + ErraNodeVariables.MSG_PRINCE_MY_ROLE;
 						byte[] answerMsg = answerString.getBytes();
-//						DatagramPacket answerPacket = new DatagramPacket(answerMsg, length, address, port)
+						DatagramPacket answerPacket = new DatagramPacket(answerMsg, answerMsg.length, receivedPacket.getAddress(), ErraNodeVariables.PORT_PRINCE_ALIVE_LISTENER);
+						aliveRequestListener.send(answerPacket);
 					}
 				} catch (IOException e) {
 					e.printStackTrace();
@@ -514,13 +527,44 @@ public class PrinceNode extends NewErraClient {
 	private void updatePrinceState(PrinceState newPrinceState) {
 		currentState = newPrinceState;
 	}
+	
+	private void findOtherPrinces() {
+		
+		JFileChooser fileChooser = new JFileChooser();				
+		fileChooser.setCurrentDirectory(new File("."));
+		int fileChooserOption = fileChooser.showOpenDialog(new JFrame());
+		if (fileChooserOption == JFileChooser.APPROVE_OPTION) {
+			String path = fileChooser.getSelectedFile().getPath();
+			File princeAddressesFile = new File(path);
+			BufferedReader reader = null;
+			try {
+			    reader = new BufferedReader(new FileReader(princeAddressesFile));
+			    String ipAddress = null;
+			    while ((ipAddress = reader.readLine()) != null) {
+			    	if (validate(ipAddress)) {
+			    		ErraNode princeNode = new ErraNode(ipAddress, NodeType.NODE_TYPE_PRINCE, NodeState.NODE_STATE_ALIVE);
+			    		princeNode.setInMyCounty(false);
+			    		nodes.put(ipAddress, princeNode);
+			    		princes.put(ipAddress, princeNode);
+			    	}
+			    }
+			    if (reader != null) {
+			    	reader.close();
+			    }
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+			} catch (IOException e)	{
+				e.printStackTrace();
+			} 
+		}
+	}
 
-//	TODO gestire uscita elegante del bootstrap
-//	private boolean shutdown() {
-//		while (currentState != BootstrapState.STATE_RUNNING) {
-//		}
-//		currentState = BootstrapState.STATE_SHUTTING_DOWN;
-//		// TODO avverto gli altri principi (e gli altri sudditi)
+	//	TODO gestire uscita elegante del bootstrap
+	//	private boolean shutdown() {
+	//		while (currentState != BootstrapState.STATE_RUNNING) {
+	//		}
+	//		currentState = BootstrapState.STATE_SHUTTING_DOWN;
+	//		// TODO avverto gli altri principi (e gli altri sudditi)
 //		System.out.println("...(closing operations)...");
 //		return true;
 //	}
