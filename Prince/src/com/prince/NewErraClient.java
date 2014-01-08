@@ -220,6 +220,7 @@ public class NewErraClient
 
 
 	//Questa struttura contiene tutti i nodi attivi
+	
 	public static Map<String, ErraNode> nodes;
 	
 	//============== Funzione per inizializzare il sistema ERRA e scoprirne la topologia ======================
@@ -451,9 +452,9 @@ public class NewErraClient
 				{
 					 s = serverSocket.accept();
 					 SocketAddress A=s.getRemoteSocketAddress();
-
+					 String IP=A.toString().substring(1, A.toString().indexOf(":"));
 					 //TODO da testare questo caso
-					 if (!(nodes.containsValue(A.toString())))
+					 if (!(nodes.containsValue(IP)))
 					 {
 						 System.err.println("Richiesta abusiva, pacchetto non inoltrato");
 					 }
@@ -538,21 +539,13 @@ public class NewErraClient
 				    System.arraycopy(packet, 12, next, 0, 4);		//4byte x Rl, 4 byte per hL, 4 byte mio IP, 4 byte prossimo
 				    String nextIP=InetAddress.getByAddress(next).getHostAddress();
 				    
-				    ErraNode E = new ErraNode(nextIP);
-				    if (!(nodes.containsValue(E)))
-				    {
-				    	System.err.println("Devo fare il forwarding ad un host che non appartiene più alla topologia della rete.");
-				    	System.err.println("Il pacchetto viene droppato");
-				    	return;
-				    }
-
 				    byte[] forwardPacket=new byte[packet.length-4];	//Il nuovo pacchetto ha solamente l'indirizzo IP in meno!
 				    
 				    byte[] newRoutingLen= new byte[4];
 				    newRoutingLen=ByteBuffer.allocate(4).putInt(rL-1).array();
 				    
-				    System.arraycopy(newRoutingLen, 0, forwardPacket, 0, 4);		//Riscrivo la lunghezza del campo routing
-				    System.arraycopy(packet, 4, forwardPacket, 4, 4);				//Copio la lunghezza del campo header
+				    System.arraycopy(newRoutingLen, 0, forwardPacket, 0, 4);				//Riscrivo la lunghezza del campo routing
+				    System.arraycopy(packet, 4, forwardPacket, 4, 4);						//Copio la lunghezza del campo header
 	      			System.arraycopy(packet, 12, forwardPacket, 8,packet.length-12);		//Riscrivo a partire dal 2° IP tutto quanto
 
 					try
@@ -608,6 +601,7 @@ public class NewErraClient
 	
 	//=================== Segnala al nodo BOOTSTRAP che me ne sto andando ====================
 
+
 	public static void sayGoodbye() throws UnknownHostException, IOException
 	{
 		//Mi connetto con il bootstrap e gli segnalo la mia dipartita....non mi aspetto niente altro!!
@@ -631,6 +625,7 @@ public class NewErraClient
 	
 	//=================== Visualizza a video la topologia di ERRA ====================
 	
+
 	public static void showTopology()
 	{
 		System.out.println("=======================================");
@@ -779,6 +774,7 @@ public class NewErraClient
 
 	
 	//=========Questa funzione consente di inviare un file ad un erra host ================
+
 
 	public static void send() throws UnsupportedEncodingException, UnknownHostException 
 	{
@@ -935,10 +931,11 @@ public class NewErraClient
 		return ipAddress;
 	}
 	
+	
 	public static void main(String[] args) throws InterruptedException, IOException
 	{	
-		
-		boolean esito=initializeErra("127.0.0.1");
+		ERRA_ADDRESS="172.21.6.0";
+		boolean esito=initializeErra(ERRA_ADDRESS);
 
 		if (!esito)
 		{
