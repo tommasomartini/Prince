@@ -12,6 +12,8 @@ public class ErraNodeVariables {
 	public static final String MSG_PRINCE_WELCOME = "W";
 	public static final String MSG_PRINCE_ALIVE_REQUEST = "?";
 	public static final String MSG_PRINCE_TABLE_UPDATE = "T";
+	public static final String MSG_PRINCE_EXILED_NODE = "X";
+	public static final String MSG_PRINCE_OUT_OF_NETWORK = "O";
 
 	// Subject
 	public static final String MSG_SUBJECT_JOIN_REQUEST = "J";
@@ -39,7 +41,7 @@ public class ErraNodeVariables {
 
 	// Speaking ports
 	public static final int PORT_SUBJECT_HELLO = 7001;
-	//	public static final int PORT_SUBJECT_GOODBYE = 7002;	// DEPRECATED
+//	public static final int PORT_SUBJECT_GOODBYE = 7002;	// DEPRECATED
 	//	public static final int PORT_SUBJECT_CONFIRM_ALIVE = 7000;	// DEPRECATED
 	public static final int PORT_SUBJECT_FILE_FORWARDING = 7002;
 	public static final int PORT_SUBJECT_SENDING = 7003;

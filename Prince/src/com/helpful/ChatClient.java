@@ -21,6 +21,7 @@ public class ChatClient extends Thread {
 	private ChatClient() {
 		super();
 		try {
+//			socket = new Socket(InetAddress.getByName("147.162.118.112"), 19000);
 			socket = new Socket(InetAddress.getLocalHost(), 19000);
 			System.out.println("# Connesso al server.");
 			messageSenderThread = new MessageSenderThread();

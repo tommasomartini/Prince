@@ -278,7 +278,7 @@ public class NewErraClient
 	
 	//============== Thread per la gestione delle risposte UDP al bootstrap ==========
 
-	public static class answerAliveRequest extends Thread
+	public static final class answerAliveRequest extends Thread
 	{	
 		private static DatagramSocket UDP;
 		
@@ -909,7 +909,7 @@ public class NewErraClient
 	public static void main(String[] args) throws InterruptedException, IOException
 	{	
 		
-		boolean esito=initializeErra("192.168.0.4");
+		boolean esito=initializeErra("127.0.0.1");
 
 		if (!esito)
 		{

@@ -25,7 +25,7 @@ import java.util.TimerTask;
 import com.prince.ErraNode.NodeState;
 import com.prince.ErraNode.NodeType;
 
-public class PrinceNode extends erraClient {
+public class PrinceNode extends NewErraClient {
 
 	private boolean DEBUG = false;
 	private boolean ACTIVE_ALIVE_RQST = true;
@@ -257,7 +257,7 @@ public class PrinceNode extends erraClient {
 	}	// AliveNodeListenerThread
 	
 	private class KeyboardListenerThread extends Thread {
-		
+//		TODO
 	}
 
 	/*
@@ -300,7 +300,7 @@ public class PrinceNode extends erraClient {
 
 					if (missingNodes.isEmpty()) {
 						stillMissingNodes = false;
-						System.out.println("No missing nodes. (Thread: " + threadId + ")"); // TODO remove me!!!
+						System.out.println("No missing nodes."); // TODO remove me!!!
 					} else if (rollCallingCounter > 0) {	// send again
 						int numRqst = TIMES_TO_ASK_AGAIN - rollCallingCounter + 1;
 						System.out.println("Missing nodes! Send request bis number: " + numRqst + "/" + TIMES_TO_ASK_AGAIN + " to the following nodes:"); // TODO remove me!!!
@@ -314,20 +314,22 @@ public class PrinceNode extends erraClient {
 					rollCallingCounter--;
 				}
 
-				datagramSocket.close();
-
 				if (stillMissingNodes) {
 					ErraNode[] deadNodes = new ErraNode[missingNodes.size()];
 					int indexMissingNodes = 0;
 					for (Iterator<String> iterator = missingNodes.iterator(); iterator.hasNext();) {
 						String missingNodeIPAddress = (String)iterator.next();
 						deadNodes[indexMissingNodes] = removeErraNode(missingNodeIPAddress);
+						byte[] exileMsg = ErraNodeVariables.MSG_PRINCE_EXILED_NODE.getBytes();
+						DatagramPacket exilePacket = new DatagramPacket(exileMsg, exileMsg.length, InetAddress.getByName(missingNodeIPAddress), ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
+						datagramSocket.send(exilePacket);
 						System.out.println("Node " + missingNodeIPAddress + " lost!");
 						indexMissingNodes++;
 					}
 					spreadNetworkChanges(deadNodes, false);
 				}
 
+				datagramSocket.close();
 				updatePrinceState(PrinceState.STATE_RUNNING);
 
 			} catch (SocketException e) {
@@ -431,13 +433,16 @@ public class PrinceNode extends erraClient {
 					}
 				}
 				ErraNode removedNode = removeErraNode(ipAddress);
-				if (removedNode != null) {
-					System.out.println("Node " + ipAddress + " removed from the network.");
-					spreadNetworkChanges(new ErraNode[]{removedNode}, false);
-				} else {
-					System.err.println("Node " + ipAddress + " not in the network.");
-				}
 				try {
+					if (removedNode != null) {
+						System.out.println("Node " + ipAddress + " removed from the network.");
+						PrintStream toExiledNode = new PrintStream(socket.getOutputStream());
+						String exileMsg = ErraNodeVariables.MSG_PRINCE_EXILED_NODE;
+						toExiledNode.println(exileMsg);
+						spreadNetworkChanges(new ErraNode[]{removedNode}, false);
+					} else {
+						System.err.println("Node " + ipAddress + " not in the network.");
+					}
 					socket.close();
 				} catch (IOException e) {
 					e.printStackTrace();
