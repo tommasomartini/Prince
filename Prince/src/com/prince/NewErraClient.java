@@ -941,12 +941,38 @@ public class NewErraClient
 		return ipAddress;
 	}
 	
+	public static double measureRTT(String IP) throws IOException
+	{
+		 String command[] = {"ping", "-c4", IP};
+		 ProcessBuilder pb = new ProcessBuilder(command);
+		 pb.redirectErrorStream(true);
+		 Process p = pb.start();
+		 BufferedReader in = new BufferedReader(new InputStreamReader(p.getInputStream()));
+		 String line;
+		 while((line = in.readLine()) != null)
+		 {
+			
+			 if (line.contains("avg"))
+			 {
+				 line=line.substring(23);
+				 line=line.substring(line.indexOf("/")+1);
+				 line=line.substring(0, line.indexOf("/"));
+				 
+				 return Double.parseDouble(line);
+			 }
+		 }
+		 return 0;
+	}
+	
 	
 	public static void main(String[] args) throws InterruptedException, IOException
 	{	
-		ERRA_ADDRESS="172.21.6.0";
-		boolean esito=initializeErra(ERRA_ADDRESS);
-
+	
+		//ERRA_ADDRESS="172.21.4.46";
+		//System.out.println("Il RTT con il bootstrap node è "+measureRTT(ERRA_ADDRESS)+" mS");
+		//boolean esito=initializeErra(ERRA_ADDRESS);
+		boolean esito=openBootstrapFile();
+		
 		if (!esito)
 		{
 			System.err.println("Connessione fallita con tutti i nodi bootstrap...l'applicazione verrà chiusa.");
