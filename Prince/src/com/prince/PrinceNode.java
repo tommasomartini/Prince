@@ -21,7 +21,6 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -42,7 +41,7 @@ public class PrinceNode extends NewErraClient {
 	private static final int TIMES_TO_ASK_AGAIN = 3;
 	private static final long DELAY_WAIT_FOR_CALLING_TO_FINISH = 1000 * 1;	// if I have to update the tables and the Bootstrap is not on "running" mode I'll wait for this time before attempting again to access tables
 
-//	private static final String BOOTSTRAP_PASSWORD = "lupo";
+	//	private static final String BOOTSTRAP_PASSWORD = "lupo";
 
 	//	States
 	private enum PrinceState {
@@ -59,34 +58,31 @@ public class PrinceNode extends NewErraClient {
 	private ServerSocket joinedNodeListener;
 	private ServerSocket departedNodeListener;
 	private DatagramSocket aliveNodeListener;
-	private DatagramSocket aliveRequestListener;
 
 	//	Listening threads
 	private JoinedNodeListenerThread joinedNodeListenerThread;
 	private DepartedNodeListenerThread departedNodeListenerThread;
 	private AliveNodeListenerThread aliveNodeListenerThread;
-//	private AliveRequestListenerThread aliveRequestListenerThread;
 
 	//	Speaking threads
 	private AliveAskerThread aliveAskerThread;
 
-//	private Map<String, ErraNode> nodes;
+	//	private Map<String, ErraNode> nodes;
 	private Map<String, ErraNode.NodeState> rollCallRegister;	// "registro per fare l'appello"
 	private Map<String, ErraNode> princes;	// other active bootstraps	TODO serve davvero??
-	
+
 	private NodeViewer nodeViewer;
 
 	private PrinceNode() {
 
 		String myIPAddress = getMyIP();
-		System.out.println("my ip " + myIPAddress);
 		me = new ErraNode(myIPAddress, NodeType.NODE_TYPE_PRINCE, NodeState.NODE_STATE_ALIVE);	
 		me.setInMyCounty(true);
-		
+
 		nodes = new HashMap<String, ErraNode>();
 		rollCallRegister = new HashMap<String, NodeState>();
 		princes = new HashMap<String, ErraNode>();
-		
+
 		findOtherPrinces();
 
 		nodeViewer = new NodeViewer();
@@ -96,16 +92,20 @@ public class PrinceNode extends NewErraClient {
 		joinedNodeListenerThread = new JoinedNodeListenerThread();
 		departedNodeListenerThread = new DepartedNodeListenerThread();
 		aliveNodeListenerThread = new AliveNodeListenerThread();
-//		aliveRequestListenerThread = new AliveRequestListenerThread();
 	}	// PrinceNode()
 
 	public static void main(String[] args) {
-		// ErraClient functions	TODO attivare queste funzioni!
+		
+		/////////////////////////
+		//	ErraClient functions
 		answerAliveRequest A=new answerAliveRequest();
 		A.start();
 		FM = new fileManager();
 		listenToForward f = new listenToForward();
 		f.start();
+		refreshTopology refresh = new refreshTopology();
+		refresh.start();
+		////////////////////////	
 
 		PrinceNode princeNode = new PrinceNode();
 		princeNode.runPrinceNode();
@@ -117,41 +117,11 @@ public class PrinceNode extends NewErraClient {
 		joinedNodeListenerThread.start();
 		departedNodeListenerThread.start();
 		aliveNodeListenerThread.start();
-//		aliveRequestListenerThread.start();
 		Timer timer = new Timer();
 		TimerTask task = new AliveAskerTask();
 		if (ACTIVE_ALIVE_RQST) {
 			timer.schedule(task, DELAY_ASK_FOR_ALIVE, PERIOD_ASK_FOR_ALIVE);
 		}
-
-		/*
-		 * Disattivo gli input da tastiera per il momento 
-		String msgFromKeyboard;
-		while (true) {
-			System.out.print("input$: ");
-			Scanner scanner = new Scanner(System.in);
-			msgFromKeyboard = scanner.nextLine();
-			if (msgFromKeyboard.equalsIgnoreCase("shutdown")) {
-				System.out.print("Insert password to shutdown the current Bootsrap Node: ");
-				Scanner scanner2 = new Scanner(System.in);
-				String password = scanner2.nextLine();
-				if (password.equalsIgnoreCase(BOOTSTRAP_PASSWORD)) {
-					System.out.println("Correct password.\nThis Bootstrap Node will be disconnected...");
-					shutdown();
-					scanner.close();
-					System.out.println("...bye!");
-					System.exit(0);
-				} else {
-					System.out.println("Wrong password!");
-				}
-				scanner2.close();
-			} else if (msgFromKeyboard.equalsIgnoreCase("net")) {
-				showNetworkTable();
-			} else {
-				System.out.println("Echo-> " + msgFromKeyboard);
-			}
-		}
-		 */
 	}
 
 	private class AliveAskerTask extends TimerTask {
@@ -255,43 +225,10 @@ public class PrinceNode extends NewErraClient {
 			}
 		}
 	}	// AliveNodeListenerThread
-	
-	private class KeyboardListenerThread extends Thread {
-//		TODO
-	}	// KeyboardListenerThread
-	
-	private class AliveRequestListenerThread extends Thread {
-		
-		public AliveRequestListenerThread() {
-			super();
-			try {
-				aliveRequestListener = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_ALIVE_LISTENER);
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
 
-		@Override
-		public void run() {
-			super.run();
-			byte[] receiverBuffer = new byte[10];
-			while (true) {
-				try {
-					DatagramPacket receivedPacket = new DatagramPacket(receiverBuffer, receiverBuffer.length);
-					aliveRequestListener.receive(receivedPacket);
-					String aliveMsg = new String(receivedPacket.getData(), 0, receivedPacket.getLength());
-					if (aliveMsg.equals(ErraNodeVariables.MSG_PRINCE_ALIVE_REQUEST)) {
-						String answerString = ErraNodeVariables.MSG_PRINCE_ALIVE_REQUEST + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR + ErraNodeVariables.MSG_PRINCE_MY_ROLE;
-						byte[] answerMsg = answerString.getBytes();
-						DatagramPacket answerPacket = new DatagramPacket(answerMsg, answerMsg.length, receivedPacket.getAddress(), ErraNodeVariables.PORT_PRINCE_ALIVE_LISTENER);
-						aliveRequestListener.send(answerPacket);
-					}
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-	}	// AliveRequestListenerThread
+//	private class KeyboardListenerThread extends Thread {
+//		//		TODO
+//	}	// KeyboardListenerThread
 
 	/*
 	 * Speaking Threads
@@ -306,6 +243,7 @@ public class PrinceNode extends NewErraClient {
 			for (Map.Entry<String, NodeState> entry : rollCallRegister.entrySet()) {
 				updateRegister(entry.getKey(), NodeState.NODE_STATE_MISSING);
 			}
+			showNetworkTable();
 			try {
 				DatagramSocket datagramSocket = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_ASK_ALIVE_NODES);
 				DatagramPacket datagramPacket;
@@ -320,6 +258,7 @@ public class PrinceNode extends NewErraClient {
 				List<String> missingNodes = new LinkedList<String>();
 				while (rollCallingCounter >= 0 && stillMissingNodes) {
 					System.out.println("Waiting for alive answers...");
+					showNetworkTable();
 					Thread.sleep(PERIOD_ASK_FOR_ALIVE_AGAIN);
 					for (Map.Entry<String, NodeState> registerEntry : rollCallRegister.entrySet()) {
 						if (registerEntry.getValue() == NodeState.NODE_STATE_MISSING && !missingNodes.contains(registerEntry.getKey())) {
@@ -504,7 +443,7 @@ public class PrinceNode extends NewErraClient {
 			}
 		}
 	}	// NotifiedAliveNodeThread
-	
+
 	/*
 	 * ****************************************************************************
 	 * END THREADS
@@ -523,40 +462,44 @@ public class PrinceNode extends NewErraClient {
 	private void showNetworkTable() {
 		nodeViewer.showNetwork(nodes, me);
 	}
-	
+
 	private void updatePrinceState(PrinceState newPrinceState) {
 		currentState = newPrinceState;
 	}
-	
+
 	private void findOtherPrinces() {
-		
+
 		JFileChooser fileChooser = new JFileChooser();				
-		fileChooser.setCurrentDirectory(new File("."));
-		int fileChooserOption = fileChooser.showOpenDialog(new JFrame());
-		if (fileChooserOption == JFileChooser.APPROVE_OPTION) {
-			String path = fileChooser.getSelectedFile().getPath();
-			File princeAddressesFile = new File(path);
-			BufferedReader reader = null;
-			try {
-			    reader = new BufferedReader(new FileReader(princeAddressesFile));
-			    String ipAddress = null;
-			    while ((ipAddress = reader.readLine()) != null) {
-			    	if (validate(ipAddress)) {
-			    		ErraNode princeNode = new ErraNode(ipAddress, NodeType.NODE_TYPE_PRINCE, NodeState.NODE_STATE_ALIVE);
-			    		princeNode.setInMyCounty(false);
-			    		nodes.put(ipAddress, princeNode);
-			    		princes.put(ipAddress, princeNode);
-			    	}
-			    }
-			    if (reader != null) {
-			    	reader.close();
-			    }
-			} catch (FileNotFoundException e) {
-				e.printStackTrace();
-			} catch (IOException e)	{
-				e.printStackTrace();
-			} 
+		fileChooser.setCurrentDirectory(new File("~"));
+		boolean fileSelected = false;
+		while (!fileSelected) {
+			int fileChooserOption = fileChooser.showOpenDialog(new JFrame());
+			if (fileChooserOption == JFileChooser.APPROVE_OPTION) {
+				fileSelected = true;
+			}
 		}
+		String path = fileChooser.getSelectedFile().getPath();
+		File princeAddressesFile = new File(path);
+		BufferedReader reader = null;
+		try {
+			reader = new BufferedReader(new FileReader(princeAddressesFile));
+			String ipAddress = null;
+			while ((ipAddress = reader.readLine()) != null) {
+				if (validate(ipAddress) && !ipAddress.equalsIgnoreCase(me.getIPAddress())) {
+					ErraNode princeNode = new ErraNode(ipAddress, NodeType.NODE_TYPE_PRINCE, NodeState.NODE_STATE_ALIVE);
+					princeNode.setInMyCounty(false);
+					nodes.put(ipAddress, princeNode);
+					princes.put(ipAddress, princeNode);
+				}
+			}
+			if (reader != null) {
+				reader.close();
+			}
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e)	{
+			e.printStackTrace();
+		} 
 	}
 
 	//	TODO gestire uscita elegante del bootstrap
@@ -565,9 +508,9 @@ public class PrinceNode extends NewErraClient {
 	//		}
 	//		currentState = BootstrapState.STATE_SHUTTING_DOWN;
 	//		// TODO avverto gli altri principi (e gli altri sudditi)
-//		System.out.println("...(closing operations)...");
-//		return true;
-//	}
+	//		System.out.println("...(closing operations)...");
+	//		return true;
+	//	}
 
 	/*
 	 * Synchronized operations on data registers

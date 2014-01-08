@@ -19,7 +19,7 @@ public class NodeViewer extends JPanel {
 	private String[] columnNames = {
 			"IP address",
 			"In my county",
-			"Bootstrap owner",
+			"Prince owner",
 			"Timestamp in",
 			"State",
 			"Role"
@@ -89,12 +89,8 @@ public class NodeViewer extends JPanel {
 			}
 			rowIndex++;
 		}
-		data[rowIndex][0] = bootstrap.getIPAddress();
-		if (bootstrap.isInMyCounty()) {
-			data[rowIndex][1] = "Yes";
-		} else {
-			data[rowIndex][1] = "No";
-		}
+		data[rowIndex][0] = "ME: " + bootstrap.getIPAddress();
+		data[rowIndex][1] = "-";
 		data[rowIndex][2] = NO_OWNER;
 		data[rowIndex][3] = simpleDateFormat.format(bootstrap.getJoinTime());
 		switch (bootstrap.getNodeState()) {
@@ -123,7 +119,7 @@ public class NodeViewer extends JPanel {
 			break;
 		}
 		table = new JTable(data, columnNames);
-		table.setPreferredScrollableViewportSize(new Dimension(1400, 200));
+		table.setPreferredScrollableViewportSize(new Dimension(900, 200));
 		table.setFillsViewportHeight(true);
 		scrollPane = new JScrollPane(table);
 		add(scrollPane);
