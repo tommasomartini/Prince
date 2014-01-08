@@ -27,7 +27,9 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.sql.Date;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -72,18 +74,19 @@ public class NewErraClient
 	public static class file
 	{	public String fileName;
 		public int packets;
-		
+		public Date addDate;
 		private List<filePart> parts = new ArrayList<filePart>();
 		
 		public file()
 		{
-			fileName="";packets=0;
+			fileName="";packets=0;addDate=(Date) Calendar.getInstance().getTime();
 		}
 
 		public file(String name,int n)
 		{
 			fileName=name;
 			packets=n;
+			addDate=(Date) Calendar.getInstance().getTime();
 		}
 		
 		public boolean add(int SN,byte[] data) 			//Restituisco true se l'aggiunta del pacchetto ha completato il file
