@@ -563,7 +563,17 @@ public class NewErraClient
 						System.err.println("Forwarding all'indirizzo "+nextIP+" fallito.");	
 						
 						//Qui bisogna provare a fare il recovery del file.
-						
+						if (rL==2)
+						{
+							System.err.println("Il destinatario non è più raggiungibile");
+						}
+						else
+						{
+							byte[] destinatario=new byte[4];				
+						    System.arraycopy(forwardPacket, 8+(rL-2)*4, destinatario, 0, 4);		
+						    String IPDest=InetAddress.getByAddress(destinatario).getHostAddress();
+						    System.out.println("Invio direttamente a "+IPDest);
+						}
 						
 					}
 				}
@@ -943,7 +953,6 @@ public class NewErraClient
 			System.exit(0);
 			return;
 		}
-		
 		
 		showTopology();
 
