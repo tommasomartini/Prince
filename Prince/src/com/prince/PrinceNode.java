@@ -41,7 +41,7 @@ public class PrinceNode extends NewErraClient {
 	private static final int TIMES_TO_ASK_AGAIN = 3;
 	private static final long DELAY_WAIT_FOR_CALLING_TO_FINISH = 1000 * 1;	// if I have to update the tables and the Bootstrap is not on "running" mode I'll wait for this time before attempting again to access tables
 	private static final long INITIALIZATION_PERIOD = 1000 * 30; // initialization duration
-	
+
 	//	private static final String BOOTSTRAP_PASSWORD = "lupo";
 
 	//	States
@@ -70,7 +70,7 @@ public class PrinceNode extends NewErraClient {
 
 	//	Speaking threads
 	private AliveAskerThread aliveAskerThread;
-	
+
 	private InitializePrinceNodeThread initializePrinceNodeThread;
 
 	//	private Map<String, ErraNode> nodes;
@@ -94,7 +94,7 @@ public class PrinceNode extends NewErraClient {
 		nodeViewer = new NodeViewer();
 
 		currentState = PrinceState.STATE_RUNNING;
-		
+
 		joinedNodeListenerThread = new JoinedNodeListenerThread();
 		departedNodeListenerThread = new DepartedNodeListenerThread();
 		aliveNodeListenerThread = new AliveNodeListenerThread();
@@ -502,9 +502,10 @@ public class PrinceNode extends NewErraClient {
 			}
 		}
 	}	// AmbassadorReceiverThread
-	
+
 	private class InitializePrinceNodeThread extends Thread {
-		
+
+
 		public InitializePrinceNodeThread() {
 			super();
 		}
@@ -512,6 +513,24 @@ public class PrinceNode extends NewErraClient {
 		@Override
 		public void run() {
 			super.run();
+			boolean handshake = true;
+			try {
+				DatagramSocket datagramSocket = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_AMBASSADOR_LISTENER);
+				String msg = ErraNodeVariables.MSG_PRINCE_HANDSHAKE;
+				byte[] buf = msg.getBytes();
+				DatagramPacket handshakePacket = new DatagramPacket(buf, buf.length);
+				while (handshake) {
+					long startTime = System.currentTimeMillis();
+					sleep(10000);
+					long endTime = System.currentTimeMillis();
+					long difference = endTime - startTime;
+				}
+			} catch (SocketException e) {
+				e.printStackTrace();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			updatePrinceState(PrinceState.STATE_RUNNING);
 		}
 	}	// InitializePrinceNodeThread
 
@@ -593,13 +612,28 @@ public class PrinceNode extends NewErraClient {
 			long difference = endTime - startTime;
 		}
 	}
-	
+
 	private void initializePrinceNode() {
 		updatePrinceState(PrinceState.STATE_INITIALIZING);
 		System.out.println("Initializing Prince node...");
-		
-		
-		updatePrinceState(PrinceState.STATE_RUNNING);
+				initializePrinceNodeThread = new InitializePrinceNodeThread();
+				initializePrinceNodeThread.start();
+//		boolean handshake = true;
+//		try {
+//			DatagramSocket datagramSocket = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_AMBASSADOR_LISTENER);
+//			String msg = ErraNodeVariables.MSG_PRINCE_HANDSHAKE;
+//			byte[] buf = msg.getBytes();
+//			DatagramPacket handshakePacket = new DatagramPacket(buf, buf.length);
+//			long startTime = System.nanoTime();
+//			while (handshake) {
+//				
+//				long endTime = System.nanoTime();
+//				long difference = endTime - startTime;
+//			}
+//		} catch (SocketException e) {
+//			e.printStackTrace();
+//		}
+//		updatePrinceState(PrinceState.STATE_RUNNING);
 	}
 
 	/*
