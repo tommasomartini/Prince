@@ -15,6 +15,7 @@ public class ErraNodeVariables {
 	public static final String MSG_PRINCE_EXILED_NODE = "X";	//
 	public static final String MSG_PRINCE_OUT_OF_NETWORK = "O";	//
 	public static final String MSG_PRINCE_MY_ROLE = "P";	//
+	public static final String MSG_PRINCE_HANDSHAKE = "H";
 
 	// Subject
 	public static final String MSG_SUBJECT_JOIN_REQUEST = "J";
@@ -31,6 +32,7 @@ public class ErraNodeVariables {
 	public static final int PORT_PRINCE_DEPARTED_NODE = 8002;
 	public static final int PORT_PRINCE_ALIVE_NODE = 8003;
 	public static final int PORT_PRINCE_ALIVE_LISTENER = 7000;
+	public static final int PORT_PRINCE_AMBASSADOR_LISTENER = 8004;
 
 	//	Speaking ports
 	public static final int PORT_PRINCE_ASK_ALIVE_NODES = 8000;

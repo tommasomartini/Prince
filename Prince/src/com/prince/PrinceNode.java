@@ -40,7 +40,8 @@ public class PrinceNode extends NewErraClient {
 	private static final long PERIOD_ASK_FOR_ALIVE_AGAIN = 1000 * 2;
 	private static final int TIMES_TO_ASK_AGAIN = 3;
 	private static final long DELAY_WAIT_FOR_CALLING_TO_FINISH = 1000 * 1;	// if I have to update the tables and the Bootstrap is not on "running" mode I'll wait for this time before attempting again to access tables
-
+	private static final long INITIALIZATION_PERIOD = 1000 * 30; // initialization duration
+	
 	//	private static final String BOOTSTRAP_PASSWORD = "lupo";
 
 	//	States
@@ -48,7 +49,8 @@ public class PrinceNode extends NewErraClient {
 		STATE_RUNNING,
 		STATE_ROLL_CALLING,
 		STATE_SPREADING_CHANGES,
-		STATE_SHUTTING_DOWN
+		STATE_SHUTTING_DOWN,
+		STATE_INITIALIZING
 	}
 	private static PrinceState currentState;
 
@@ -57,19 +59,23 @@ public class PrinceNode extends NewErraClient {
 	//	ServerSockets
 	private ServerSocket joinedNodeListener;
 	private ServerSocket departedNodeListener;
+	private ServerSocket ambassadorListenerSocket;
 	private DatagramSocket aliveNodeListener;
 
 	//	Listening threads
 	private JoinedNodeListenerThread joinedNodeListenerThread;
 	private DepartedNodeListenerThread departedNodeListenerThread;
 	private AliveNodeListenerThread aliveNodeListenerThread;
+	private AmbassadorListenerThread ambassadorListenerThread;
 
 	//	Speaking threads
 	private AliveAskerThread aliveAskerThread;
+	
+	private InitializePrinceNodeThread initializePrinceNodeThread;
 
 	//	private Map<String, ErraNode> nodes;
 	private Map<String, ErraNode.NodeState> rollCallRegister;	// "registro per fare l'appello"
-	private Map<String, ErraNode> princes;	// other active bootstraps	TODO serve davvero??
+	private Map<String, ErraNode> princes;	// other active bootstraps
 
 	private NodeViewer nodeViewer;
 
@@ -88,14 +94,15 @@ public class PrinceNode extends NewErraClient {
 		nodeViewer = new NodeViewer();
 
 		currentState = PrinceState.STATE_RUNNING;
-
+		
 		joinedNodeListenerThread = new JoinedNodeListenerThread();
 		departedNodeListenerThread = new DepartedNodeListenerThread();
 		aliveNodeListenerThread = new AliveNodeListenerThread();
+		ambassadorListenerThread = new AmbassadorListenerThread();
 	}	// PrinceNode()
 
 	public static void main(String[] args) {
-		
+
 		/////////////////////////
 		//	ErraClient functions
 		answerAliveRequest A=new answerAliveRequest();
@@ -108,6 +115,7 @@ public class PrinceNode extends NewErraClient {
 		////////////////////////	
 
 		PrinceNode princeNode = new PrinceNode();
+		princeNode.initializePrinceNode();
 		princeNode.runPrinceNode();
 	}	// main()
 
@@ -226,9 +234,36 @@ public class PrinceNode extends NewErraClient {
 		}
 	}	// AliveNodeListenerThread
 
-//	private class KeyboardListenerThread extends Thread {
-//		//		TODO
-//	}	// KeyboardListenerThread
+	//	private class KeyboardListenerThread extends Thread {
+	//		//		TODO
+	//	}	// KeyboardListenerThread
+
+	private class AmbassadorListenerThread extends Thread {
+
+		public AmbassadorListenerThread() {
+			super();
+			try {
+				ambassadorListenerSocket = new ServerSocket(ErraNodeVariables.PORT_PRINCE_AMBASSADOR_LISTENER);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+
+		@Override
+		public void run() {
+			super.run();
+			Socket socket;
+			while (true) {
+				try {
+					socket = ambassadorListenerSocket.accept();
+					AmbassadorReceiverThread ambassadorReceiverThread = new AmbassadorReceiverThread(socket);
+					ambassadorReceiverThread.start();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}	// AmbassadorListenerThread
 
 	/*
 	 * Speaking Threads
@@ -444,6 +479,42 @@ public class PrinceNode extends NewErraClient {
 		}
 	}	// NotifiedAliveNodeThread
 
+	private class AmbassadorReceiverThread extends Thread {
+
+		private Socket socket;
+
+		public AmbassadorReceiverThread(Socket newSocket) {
+			super();
+			socket = newSocket;
+		}
+
+		@Override
+		public void run() {
+			super.run();
+			try {
+				String msg = ErraNodeVariables.MSG_PRINCE_HANDSHAKE;
+				PrintStream toPrince;
+				toPrince = new PrintStream(socket.getOutputStream());
+				toPrince.println(msg);
+				socket.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}	// AmbassadorReceiverThread
+	
+	private class InitializePrinceNodeThread extends Thread {
+		
+		public InitializePrinceNodeThread() {
+			super();
+		}
+
+		@Override
+		public void run() {
+			super.run();
+		}
+	}	// InitializePrinceNodeThread
+
 	/*
 	 * ****************************************************************************
 	 * END THREADS
@@ -511,6 +582,25 @@ public class PrinceNode extends NewErraClient {
 	//		System.out.println("...(closing operations)...");
 	//		return true;
 	//	}
+
+	private void initializeAliveTimer() {
+		long maxPeriod;
+		for(Map.Entry<String, ErraNode> entry : princes.entrySet()) {
+			ErraNode currentPrinceNode = entry.getValue();
+			long startTime = System.nanoTime();
+
+			long endTime = System.nanoTime();
+			long difference = endTime - startTime;
+		}
+	}
+	
+	private void initializePrinceNode() {
+		updatePrinceState(PrinceState.STATE_INITIALIZING);
+		System.out.println("Initializing Prince node...");
+		
+		
+		updatePrinceState(PrinceState.STATE_RUNNING);
+	}
 
 	/*
 	 * Synchronized operations on data registers
