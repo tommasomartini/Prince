@@ -18,12 +18,14 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -79,8 +81,13 @@ public class PrinceNode extends NewErraClient {
 	//	private Map<String, ErraNode> nodes;
 	private Map<String, ErraNode.NodeState> rollCallRegister;	// "registro per fare l'appello"
 	private Map<String, ErraNode> princes;	// other active bootstraps
-
+	private Map<Integer, Long> handshakeTimes;
+	
 	private NodeViewer nodeViewer;
+
+	private boolean handshake;
+
+	private Timer timer;
 
 	private PrinceNode() {
 		String myIPAddress = getMyIP();
@@ -90,6 +97,9 @@ public class PrinceNode extends NewErraClient {
 		nodes = new HashMap<String, ErraNode>();
 		rollCallRegister = new HashMap<String, NodeState>();
 		princes = new HashMap<String, ErraNode>();
+		handshakeTimes = new HashMap<Integer, Long>();
+
+		timer = new Timer();
 
 		findOtherPrinces();
 
@@ -127,7 +137,6 @@ public class PrinceNode extends NewErraClient {
 		joinedNodeListenerThread.start();
 		departedNodeListenerThread.start();
 		aliveNodeListenerThread.start();
-		Timer timer = new Timer();
 		TimerTask task = new AliveAskerTask();
 		if (ACTIVE_ALIVE_RQST) {
 			timer.schedule(task, DELAY_ASK_FOR_ALIVE, PERIOD_ASK_FOR_ALIVE);
@@ -135,7 +144,6 @@ public class PrinceNode extends NewErraClient {
 	}
 
 	private class AliveAskerTask extends TimerTask {
-
 		@Override
 		public void run() {
 			if (!nodes.isEmpty()) {
@@ -145,7 +153,14 @@ public class PrinceNode extends NewErraClient {
 				System.out.println("No nodes in the network, I won't send any alive request.");
 			}
 		}
-	}
+	}	// AliveAskerTask
+
+	private class StopHandshakeTask extends TimerTask {
+		@Override
+		public void run() {
+			handshake = false;
+		}
+	}	// StopHandshakeTask
 
 	/*
 	 * ****************************************************************************
@@ -507,7 +522,6 @@ public class PrinceNode extends NewErraClient {
 
 	private class InitializePrinceNodeThread extends Thread {
 
-
 		public InitializePrinceNodeThread() {
 			super();
 		}
@@ -515,23 +529,32 @@ public class PrinceNode extends NewErraClient {
 		@Override
 		public void run() {
 			super.run();
-			boolean handshake = true;
+			handshake = true;
 			try {
-				DatagramSocket datagramSocket = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_AMBASSADOR_LISTENER);
-				String msg = ErraNodeVariables.MSG_PRINCE_HANDSHAKE;
-				byte[] buf = msg.getBytes();
-				DatagramPacket handshakePacket = new DatagramPacket(buf, buf.length);
+				DatagramSocket datagramSocket = new DatagramSocket();
+				String msg = ErraNodeVariables.MSG_PRINCE_HANDSHAKE + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR;
+				DatagramPacket handshakePacket;
+				InetAddress currentPrinceAddress;
+				ErraNode[] princeArray = (ErraNode[])princes.values().toArray();
+				int princeIndex = 0;
 				while (handshake) {
+					msg += new Random().nextInt(1000);
+					byte[] buf = msg.getBytes();
+					currentPrinceAddress = InetAddress.getByName(princeArray[princeIndex++].getIPAddress());
+					handshakePacket = new DatagramPacket(buf, buf.length, currentPrinceAddress, ErraNodeVariables.PORT_PRINCE_AMBASSADOR_LISTENER);
 					long startTime = System.currentTimeMillis();
-					sleep(10000);
-					long endTime = System.currentTimeMillis();
-					long difference = endTime - startTime;
+					datagramSocket.send(handshakePacket);
+					if (princeIndex == princeArray.length) {
+						princeIndex = 0;
+					}
 				}
 			} catch (SocketException e) {
 				e.printStackTrace();
-			} catch (InterruptedException e) {
+			} catch (UnknownHostException e) {
 				e.printStackTrace();
-			}
+			} catch (IOException e) {
+				e.printStackTrace();
+			} 
 			updatePrinceState(PrinceState.STATE_RUNNING);
 		}
 	}	// InitializePrinceNodeThread
@@ -618,24 +641,10 @@ public class PrinceNode extends NewErraClient {
 	private void initializePrinceNode() {
 		updatePrinceState(PrinceState.STATE_INITIALIZING);
 		System.out.println("Initializing Prince node...");
-				initializePrinceNodeThread = new InitializePrinceNodeThread();
-				initializePrinceNodeThread.start();
-//		boolean handshake = true;
-//		try {
-//			DatagramSocket datagramSocket = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_AMBASSADOR_LISTENER);
-//			String msg = ErraNodeVariables.MSG_PRINCE_HANDSHAKE;
-//			byte[] buf = msg.getBytes();
-//			DatagramPacket handshakePacket = new DatagramPacket(buf, buf.length);
-//			long startTime = System.nanoTime();
-//			while (handshake) {
-//				
-//				long endTime = System.nanoTime();
-//				long difference = endTime - startTime;
-//			}
-//		} catch (SocketException e) {
-//			e.printStackTrace();
-//		}
-//		updatePrinceState(PrinceState.STATE_RUNNING);
+		initializePrinceNodeThread = new InitializePrinceNodeThread();
+		initializePrinceNodeThread.start();
+		TimerTask task = new StopHandshakeTask();
+		timer.schedule(task, INITIALIZATION_PERIOD);
 	}
 
 	/*
