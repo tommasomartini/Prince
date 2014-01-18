@@ -24,10 +24,13 @@ import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.sql.Date;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -72,18 +75,19 @@ public class NewErraClient
 	public static class file
 	{	public String fileName;
 		public int packets;
-		
+		public java.util.Date addDate;
 		private List<filePart> parts = new ArrayList<filePart>();
 		
 		public file()
 		{
-			fileName="";packets=0;
+			fileName="";packets=0;addDate=(java.util.Date) Calendar.getInstance().getTime();
 		}
 
 		public file(String name,int n)
 		{
 			fileName=name;
 			packets=n;
+			addDate=(java.util.Date) Calendar.getInstance().getTime();
 		}
 		
 		public boolean add(int SN,byte[] data) 			//Restituisco true se l'aggiunta del pacchetto ha completato il file
@@ -216,6 +220,7 @@ public class NewErraClient
 
 
 	//Questa struttura contiene tutti i nodi attivi
+	
 	public static Map<String, ErraNode> nodes;
 	
 	//============== Funzione per inizializzare il sistema ERRA e scoprirne la topologia ======================
@@ -278,7 +283,7 @@ public class NewErraClient
 	
 	//============== Thread per la gestione delle risposte UDP al bootstrap ==========
 
-	public static class answerAliveRequest extends Thread
+	public static final class answerAliveRequest extends Thread
 	{	
 		private static DatagramSocket UDP;
 		
@@ -446,8 +451,19 @@ public class NewErraClient
 				while(true)
 				{
 					 s = serverSocket.accept();
-					 forward F=new forward(s);
-					 F.start();
+					 SocketAddress A=s.getRemoteSocketAddress();
+					 String IP=A.toString().substring(1, A.toString().indexOf(":"));
+					 //TODO da testare questo caso
+					 if (!(nodes.containsKey(IP)))
+					 {
+						 System.err.println("Richiesta abusiva, pacchetto non inoltrato");
+					 }
+					 else
+					 {
+						 System.out.println("Faccio il forwarding di un pacchetto autorizzato che proviene da "+A.toString());
+						 forward F=new forward(s);
+						 F.start();
+					 }
 				}
 			}
 			catch (IOException e)
@@ -507,6 +523,7 @@ public class NewErraClient
 				
 				if (rL==1)
 				{
+					//Il pacchetto ha raggiunto il destinatario, che sono io!
 					byte[] header=new byte[hL];
 					System.arraycopy(packet, 12, header, 0, hL);
 					String sH=new String(header, "US-ASCII");
@@ -521,13 +538,14 @@ public class NewErraClient
 					byte[] next=new byte[4];				//Estraggo il primo IP della catena
 				    System.arraycopy(packet, 12, next, 0, 4);		//4byte x Rl, 4 byte per hL, 4 byte mio IP, 4 byte prossimo
 				    String nextIP=InetAddress.getByAddress(next).getHostAddress();
+				    
 				    byte[] forwardPacket=new byte[packet.length-4];	//Il nuovo pacchetto ha solamente l'indirizzo IP in meno!
 				    
 				    byte[] newRoutingLen= new byte[4];
 				    newRoutingLen=ByteBuffer.allocate(4).putInt(rL-1).array();
 				    
-				    System.arraycopy(newRoutingLen, 0, forwardPacket, 0, 4);		//Riscrivo la lunghezza del campo routing
-				    System.arraycopy(packet, 4, forwardPacket, 4, 4);				//Copio la lunghezza del campo header
+				    System.arraycopy(newRoutingLen, 0, forwardPacket, 0, 4);				//Riscrivo la lunghezza del campo routing
+				    System.arraycopy(packet, 4, forwardPacket, 4, 4);						//Copio la lunghezza del campo header
 	      			System.arraycopy(packet, 12, forwardPacket, 8,packet.length-12);		//Riscrivo a partire dal 2° IP tutto quanto
 
 					try
@@ -543,6 +561,20 @@ public class NewErraClient
 					catch (IOException e)
 					{
 						System.err.println("Forwarding all'indirizzo "+nextIP+" fallito.");	
+						
+						//Qui bisogna provare a fare il recovery del file.
+						if (rL==2)
+						{
+							System.err.println("Il destinatario non è più raggiungibile");
+						}
+						else
+						{
+							byte[] destinatario=new byte[4];				
+						    System.arraycopy(forwardPacket, 8+(rL-2)*4, destinatario, 0, 4);		
+						    String IPDest=InetAddress.getByAddress(destinatario).getHostAddress();
+						    System.out.println("Invio direttamente a "+IPDest);
+						}
+						
 					}
 				}
 				return;	
@@ -579,6 +611,7 @@ public class NewErraClient
 	
 	//=================== Segnala al nodo BOOTSTRAP che me ne sto andando ====================
 
+
 	public static void sayGoodbye() throws UnknownHostException, IOException
 	{
 		//Mi connetto con il bootstrap e gli segnalo la mia dipartita....non mi aspetto niente altro!!
@@ -602,6 +635,7 @@ public class NewErraClient
 	
 	//=================== Visualizza a video la topologia di ERRA ====================
 	
+
 	public static void showTopology()
 	{
 		System.out.println("=======================================");
@@ -750,6 +784,7 @@ public class NewErraClient
 
 	
 	//=========Questa funzione consente di inviare un file ad un erra host ================
+
 
 	public static void send() throws UnsupportedEncodingException, UnknownHostException 
 	{
@@ -906,18 +941,44 @@ public class NewErraClient
 		return ipAddress;
 	}
 	
+	public static double measureRTT(String IP) throws IOException
+	{
+		 String command[] = {"ping", "-c4", IP};
+		 ProcessBuilder pb = new ProcessBuilder(command);
+		 pb.redirectErrorStream(true);
+		 Process p = pb.start();
+		 BufferedReader in = new BufferedReader(new InputStreamReader(p.getInputStream()));
+		 String line;
+		 while((line = in.readLine()) != null)
+		 {
+			
+			 if (line.contains("avg"))
+			 {
+				 line=line.substring(23);
+				 line=line.substring(line.indexOf("/")+1);
+				 line=line.substring(0, line.indexOf("/"));
+				 
+				 return Double.parseDouble(line);
+			 }
+		 }
+		 return 0;
+	}
+	
+	
 	public static void main(String[] args) throws InterruptedException, IOException
 	{	
+	
+		//ERRA_ADDRESS="172.21.4.46";
+		//System.out.println("Il RTT con il bootstrap node è "+measureRTT(ERRA_ADDRESS)+" mS");
+		//boolean esito=initializeErra(ERRA_ADDRESS);
+		boolean esito=openBootstrapFile();
 		
-		boolean esito=initializeErra("192.168.0.4");
-
 		if (!esito)
 		{
 			System.err.println("Connessione fallita con tutti i nodi bootstrap...l'applicazione verrà chiusa.");
 			System.exit(0);
 			return;
 		}
-		
 		
 		showTopology();
 
