@@ -128,7 +128,7 @@ public class PrinceNode extends NewErraClient {
 		////////////////////////	
 
 		PrinceNode princeNode = new PrinceNode();
-		princeNode.initializePrinceNode();
+//		princeNode.initializePrinceNode();
 		while (currentState != PrinceState.STATE_RUNNING) {
 			
 		}
