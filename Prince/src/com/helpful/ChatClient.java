@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.util.Scanner;
@@ -21,8 +22,8 @@ public class ChatClient extends Thread {
 	private ChatClient() {
 		super();
 		try {
-//			socket = new Socket(InetAddress.getByName("147.162.118.112"), 19000);
-			socket = new Socket(InetAddress.getLocalHost(), 19000);
+			socket = new Socket("147.162.118.114", 19000);
+//			socket = new Socket(InetAddress.getLocalHost(), 19000);
 			System.out.println("# Connesso al server.");
 			messageSenderThread = new MessageSenderThread();
 		} catch (IOException e) {

@@ -661,6 +661,7 @@ public class PrinceNode extends NewErraClient {
 					princeNode.setInMyCounty(false);
 					nodes.put(ipAddress, princeNode);
 					princes.put(ipAddress, princeNode);
+					rollCallRegister.put(ipAddress, NodeState.NODE_STATE_ALIVE);
 				}
 			}
 			if (reader != null) {
