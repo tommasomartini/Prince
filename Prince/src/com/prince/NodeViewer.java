@@ -37,7 +37,7 @@ public class NodeViewer extends JPanel {
 		simpleDateFormat = new SimpleDateFormat("HH:mm:ss.SSSS yyyy-MM-dd");
 	}
 
-	public void showNetwork(Map<String, ErraNode> newNodes, ErraNode bootstrap) {
+	public void showNetwork(Map<String, ErraNode> newNodes, ErraNode prince) {
 		nodes = newNodes;
 		if (frame != null && frame.isShowing()) {
 			frame.setVisible(false);
@@ -45,7 +45,6 @@ public class NodeViewer extends JPanel {
 		}
 		this.removeAll();
 		frame = new JFrame("ERRA Nodes");
-		//		if (!nodes.isEmpty()) {
 		String[][] data = new String[nodes.size() + 1][columnNames.length];
 		int rowIndex = 0;
 		for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
@@ -89,11 +88,11 @@ public class NodeViewer extends JPanel {
 			}
 			rowIndex++;
 		}
-		data[rowIndex][0] = "ME: " + bootstrap.getIPAddress();
+		data[rowIndex][0] = "ME: " + prince.getIPAddress();
 		data[rowIndex][1] = "-";
 		data[rowIndex][2] = NO_OWNER;
-		data[rowIndex][3] = simpleDateFormat.format(bootstrap.getJoinTime());
-		switch (bootstrap.getNodeState()) {
+		data[rowIndex][3] = simpleDateFormat.format(prince.getJoinTime());
+		switch (prince.getNodeState()) {
 		case NODE_STATE_ALIVE:
 			data[rowIndex][4] = "alive";
 			break;
@@ -107,7 +106,7 @@ public class NodeViewer extends JPanel {
 			data[rowIndex][4] = "unknown";
 			break;
 		}
-		switch (bootstrap.getNodeType()) {
+		switch (prince.getNodeType()) {
 		case NODE_TYPE_PRINCE:
 			data[rowIndex][5] = "prince";
 			break;
