@@ -37,7 +37,7 @@ public class ErraNodeVariables {
 	public static final int PORT_PRINCE_FOREIGN_AMBASSADOR_LISTENER = 8005;
 
 	//	Speaking ports
-	public static final int PORT_PRINCE_ASK_ALIVE_NODES = 8000;
+//	public static final int PORT_PRINCE_ASK_ALIVE_NODES = 8000;		// DEPRECATED -> perche' l'abbiamo messo?
 	//	public static final int PORT_PRINCE_REFRESH_TABLE = 8004;	// DEPRECATED
 
 	//	Subject

@@ -693,7 +693,7 @@ public class NewErraClient
 							DataOutputStream streamToServer = new DataOutputStream(AbusiveSocket.getOutputStream());
 							streamToServer.writeBytes("TO" + '\n');	
 							AbusiveSocket.close();
-							System.err.println("sender has been told he is out of the net!")
+							System.err.println("sender has been told he is out of the net!");
 						}
 						catch (IOException e)
 						{System.err.println("sender unreachable.");}
