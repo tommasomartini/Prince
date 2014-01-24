@@ -12,9 +12,9 @@ public class ErraNodeVariables {
 	public static final String MSG_PRINCE_WELCOME = "W";
 	public static final String MSG_PRINCE_ALIVE_REQUEST = "?";
 	public static final String MSG_PRINCE_TABLE_UPDATE = "T";
-	public static final String MSG_PRINCE_EXILED_NODE = "X";	//
-	public static final String MSG_PRINCE_OUT_OF_NETWORK = "O";	//
-	public static final String MSG_PRINCE_MY_ROLE = "P";	//
+//	public static final String MSG_PRINCE_EXILED_NODE = "X";	// DEPRECATED
+//	public static final String MSG_PRINCE_OUT_OF_NETWORK = "O";	// DEPRECATED
+//	public static final String MSG_PRINCE_MY_ROLE = "P";	// DEPRECATED
 	public static final String MSG_PRINCE_HANDSHAKE = "H";
 	public static final String MSG_PRINCE_ANSWER_HANDSHAKE = "S";
 

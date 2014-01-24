@@ -41,11 +41,9 @@ public class PrinceNode extends NewErraClient {
 	private static final long PERIOD_ASK_FOR_ALIVE = 1000 * 15;
 	private static final int TIMES_TO_ASK_AGAIN = 3;
 	private static final long DELAY_WAIT_FOR_CALLING_TO_FINISH = 1000 * 1;	// if I have to update the tables and the Bootstrap is not on "running" mode I'll wait for this time before attempting again to access tables
-	private static final long INITIALIZATION_PERIOD = 1000 * 5; // initialization duration
+//	private static final long INITIALIZATION_PERIOD = 1000 * 5; // initialization duration
 
 	private static long periodAskForALiveAgain = 1000 * 2;	// default: 2 seconds
-
-	//	private static final String BOOTSTRAP_PASSWORD = "lupo";
 
 	//	States
 	private enum PrinceState {
@@ -84,7 +82,7 @@ public class PrinceNode extends NewErraClient {
 
 	private NodeViewer nodeViewer;
 
-	private boolean handshake;
+//	private boolean handshake;
 
 	private Timer timer;
 
@@ -159,13 +157,13 @@ public class PrinceNode extends NewErraClient {
 		}
 	}	// AliveAskerTask
 
-	private class StopHandshakeTask extends TimerTask {
-		@Override
-		public void run() {
-			handshake = false;
-			System.out.println("Stop handshaking!");
-		}
-	}	// StopHandshakeTask
+//	private class StopHandshakeTask extends TimerTask {
+//		@Override
+//		public void run() {
+//			handshake = false;
+//			System.out.println("Stop handshaking!");
+//		}
+//	}	// StopHandshakeTask
 
 	/*
 	 * ****************************************************************************
@@ -275,7 +273,7 @@ public class PrinceNode extends NewErraClient {
 		public void run() {
 			super.run();
 			try {
-				System.out.println("Waiting for foreign ambassadors.");
+//				System.out.println("Waiting for foreign ambassadors.");	//TODO remove me
 				byte[] receivedBuffer = new byte[1000];
 				DatagramPacket receivedPacket;
 				DatagramPacket sendingPacket;
@@ -399,10 +397,7 @@ public class PrinceNode extends NewErraClient {
 					for (Iterator<String> iterator = missingNodes.iterator(); iterator.hasNext();) {
 						String missingNodeIPAddress = (String)iterator.next();
 						deadNodes[indexMissingNodes] = removeErraNode(missingNodeIPAddress);
-						byte[] exileMsg = ErraNodeVariables.MSG_PRINCE_EXILED_NODE.getBytes();
-						DatagramPacket exilePacket = new DatagramPacket(exileMsg, exileMsg.length, InetAddress.getByName(missingNodeIPAddress), ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
-						datagramSocket.send(exilePacket);
-						System.out.println("Node " + missingNodeIPAddress + " lost!");
+						System.out.println("Node " + missingNodeIPAddress + " lost.");
 						indexMissingNodes++;
 					}
 					spreadNetworkChanges(deadNodes, false);
@@ -562,7 +557,7 @@ public class PrinceNode extends NewErraClient {
 		@Override
 		public void run() {
 			super.run();
-			TimerTask task;
+//			TimerTask task;
 //			boolean ambassadorsAnswered = false;
 			while (true) {
 //				task = new StopHandshakeTask();	// Qui uso la variabile handshake!!
@@ -589,6 +584,7 @@ public class PrinceNode extends NewErraClient {
 //							sleep(1000);
 //						}
 //					}
+					System.out.println("I am sending my ambassadors around.");
 					while (princesIterator.hasNext()) {
 						msg += currentHandshakeID++;
 						byte[] buf = msg.getBytes();
@@ -596,7 +592,7 @@ public class PrinceNode extends NewErraClient {
 						handshakePacket = new DatagramPacket(buf, buf.length, currentPrinceAddress, ErraNodeVariables.PORT_PRINCE_FOREIGN_AMBASSADOR_LISTENER);
 						ambassadorDepartureTimes.put(currentHandshakeID, System.nanoTime());
 						datagramSocket.send(handshakePacket);
-//						System.out.println("Send!!");	//TODO remove me
+//						System.out.println("...");	//TODO remove me
 					}
 //					System.out.println("Aspetto due secondi i miei ambasciatori..");	//TODO remove me
 					sleep(1000 * 2);	// wait some seconds...
@@ -721,6 +717,8 @@ public class PrinceNode extends NewErraClient {
 
 	private synchronized void updateRegister(String erraIPAddress, NodeState nodeState) {
 		rollCallRegister.put(erraIPAddress, nodeState);
+		nodes.get(erraIPAddress).setNodeState(nodeState);	// TODO problemi qui?
+		showNetworkTable();
 	}
 
 	private synchronized void spreadNetworkChanges(ErraNode[] changedNodes, boolean added) {
