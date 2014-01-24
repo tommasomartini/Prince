@@ -38,13 +38,14 @@ public class PrinceNode extends NewErraClient {
 
 	//	Times and periods in milliseconds
 	private static final long DELAY_ASK_FOR_ALIVE = 1000 * 3;	
-	private static final long PERIOD_ASK_FOR_ALIVE = 1000 * 15;
+//	private static final long PERIOD_ASK_FOR_ALIVE = 1000 * 60;
 	private static final int TIMES_TO_ASK_AGAIN = 3;
 	private static final long DELAY_WAIT_FOR_CALLING_TO_FINISH = 1000 * 1;	// if I have to update the tables and the Bootstrap is not on "running" mode I'll wait for this time before attempting again to access tables
-//	private static final long INITIALIZATION_PERIOD = 1000 * 5; // initialization duration
+	//	private static final long INITIALIZATION_PERIOD = 1000 * 5; // initialization duration
 
 	private static long periodAskForALiveAgain = 1000 * 2;	// default: 2 seconds
-
+	private static long periodAskForAlive = 1000 * 60;	// default: 60 seconds
+	
 	//	States
 	private enum PrinceState {
 		STATE_RUNNING,
@@ -82,7 +83,7 @@ public class PrinceNode extends NewErraClient {
 
 	private NodeViewer nodeViewer;
 
-//	private boolean handshake;
+	//	private boolean handshake;
 
 	private Timer timer;
 
@@ -128,20 +129,21 @@ public class PrinceNode extends NewErraClient {
 		PrinceNode princeNode = new PrinceNode();
 		princeNode.initializePrinceNode();
 		while (currentState != PrinceState.STATE_RUNNING) {
-			
+
 		}
 		princeNode.runPrinceNode();
 	}	// main()
 
 	private void runPrinceNode() {
-		System.out.println("#Prince " + me.getIPAddress() + " activated. Time: " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime()));
+		
+		System.out.println("=====\n#Prince " + me.getIPAddress() + " activated.");
 		nodeViewer.showNetwork(nodes, me);
 		joinedNodeListenerThread.start();
 		departedNodeListenerThread.start();
 		aliveNodeListenerThread.start();
 		TimerTask task = new AliveAskerTask();
 		if (ACTIVE_ALIVE_RQST) {
-			timer.schedule(task, DELAY_ASK_FOR_ALIVE, PERIOD_ASK_FOR_ALIVE);
+			timer.schedule(task, DELAY_ASK_FOR_ALIVE, periodAskForAlive);
 		}
 	}
 
@@ -157,13 +159,13 @@ public class PrinceNode extends NewErraClient {
 		}
 	}	// AliveAskerTask
 
-//	private class StopHandshakeTask extends TimerTask {
-//		@Override
-//		public void run() {
-//			handshake = false;
-//			System.out.println("Stop handshaking!");
-//		}
-//	}	// StopHandshakeTask
+	//	private class StopHandshakeTask extends TimerTask {
+	//		@Override
+	//		public void run() {
+	//			handshake = false;
+	//			System.out.println("Stop handshaking!");
+	//		}
+	//	}	// StopHandshakeTask
 
 	/*
 	 * ****************************************************************************
@@ -273,7 +275,7 @@ public class PrinceNode extends NewErraClient {
 		public void run() {
 			super.run();
 			try {
-//				System.out.println("Waiting for foreign ambassadors.");	//TODO remove me
+				//				System.out.println("Waiting for foreign ambassadors.");	//TODO remove me
 				byte[] receivedBuffer = new byte[1000];
 				DatagramPacket receivedPacket;
 				DatagramPacket sendingPacket;
@@ -352,7 +354,8 @@ public class PrinceNode extends NewErraClient {
 			}
 			showNetworkTable();
 			try {
-				DatagramSocket datagramSocket = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_ASK_ALIVE_NODES);
+//				DatagramSocket datagramSocket = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_ASK_ALIVE_NODES);
+				DatagramSocket datagramSocket = new DatagramSocket();
 				DatagramPacket datagramPacket;
 				byte[] msg = (new String(ErraNodeVariables.MSG_PRINCE_ALIVE_REQUEST)).getBytes();
 				for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
@@ -557,68 +560,72 @@ public class PrinceNode extends NewErraClient {
 		@Override
 		public void run() {
 			super.run();
-//			TimerTask task;
-//			boolean ambassadorsAnswered = false;
-			while (true) {
-//				task = new StopHandshakeTask();	// Qui uso la variabile handshake!!
-//				timer.schedule(task, INITIALIZATION_PERIOD);
-//				handshake = true;
-				try {
-					DatagramSocket datagramSocket = new DatagramSocket();
-					String msg = ErraNodeVariables.MSG_PRINCE_HANDSHAKE + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR;
-					DatagramPacket handshakePacket;
-					InetAddress currentPrinceAddress;
-					int currentHandshakeID = new Random().nextInt(1000);
-					Collection<ErraNode> princeCollection = princes.values();
-					Iterator<ErraNode> princesIterator = princeCollection.iterator();
-//					while (handshake) {
-//						msg += currentHandshakeID++;
-//						byte[] buf = msg.getBytes();
-//						currentPrinceAddress = InetAddress.getByName(((ErraNode)princesIterator.next()).getIPAddress());
-//						handshakePacket = new DatagramPacket(buf, buf.length, currentPrinceAddress, ErraNodeVariables.PORT_PRINCE_FOREIGN_AMBASSADOR_LISTENER);
-//						ambassadorDepartureTimes.put(currentHandshakeID, System.nanoTime());
-//						datagramSocket.send(handshakePacket);
-//						System.out.println("Send!!");	//TODO remove me
-//						if (!princesIterator.hasNext()) {
-//							princesIterator = princeCollection.iterator();
-//							sleep(1000);
-//						}
-//					}
-					System.out.println("I am sending my ambassadors around.");
-					while (princesIterator.hasNext()) {
-						msg += currentHandshakeID++;
-						byte[] buf = msg.getBytes();
-						currentPrinceAddress = InetAddress.getByName(((ErraNode)princesIterator.next()).getIPAddress());
-						handshakePacket = new DatagramPacket(buf, buf.length, currentPrinceAddress, ErraNodeVariables.PORT_PRINCE_FOREIGN_AMBASSADOR_LISTENER);
-						ambassadorDepartureTimes.put(currentHandshakeID, System.nanoTime());
-						datagramSocket.send(handshakePacket);
-//						System.out.println("...");	//TODO remove me
-					}
-//					System.out.println("Aspetto due secondi i miei ambasciatori..");	//TODO remove me
-					sleep(1000 * 2);	// wait some seconds...
-					if (ambassadorTripDuration.isEmpty()) {
-						System.out.println("No ambassador answered: the procedure will be repeated.");
-					} else {
-						long sumTripTime = 0;
-						for (Map.Entry<Integer, Long> entry : ambassadorTripDuration.entrySet()) {
-							sumTripTime += entry.getValue();
+			//			TimerTask task;
+			//			boolean ambassadorsAnswered = false;
+			if (princes.size() >= 1) {
+				while (true) {
+					//				task = new StopHandshakeTask();	// Qui uso la variabile handshake!!
+					//				timer.schedule(task, INITIALIZATION_PERIOD);
+					//				handshake = true;
+					try {
+						DatagramSocket datagramSocket = new DatagramSocket();
+						String msg = ErraNodeVariables.MSG_PRINCE_HANDSHAKE + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR;
+						DatagramPacket handshakePacket;
+						InetAddress currentPrinceAddress;
+						int currentHandshakeID = new Random().nextInt(1000);
+						Collection<ErraNode> princeCollection = princes.values();
+						Iterator<ErraNode> princesIterator = princeCollection.iterator();
+						//					while (handshake) {
+						//						msg += currentHandshakeID++;
+						//						byte[] buf = msg.getBytes();
+						//						currentPrinceAddress = InetAddress.getByName(((ErraNode)princesIterator.next()).getIPAddress());
+						//						handshakePacket = new DatagramPacket(buf, buf.length, currentPrinceAddress, ErraNodeVariables.PORT_PRINCE_FOREIGN_AMBASSADOR_LISTENER);
+						//						ambassadorDepartureTimes.put(currentHandshakeID, System.nanoTime());
+						//						datagramSocket.send(handshakePacket);
+						//						System.out.println("Send!!");	//TODO remove me
+						//						if (!princesIterator.hasNext()) {
+						//							princesIterator = princeCollection.iterator();
+						//							sleep(1000);
+						//						}
+						//					}
+						System.out.println("I am sending my ambassadors around.");
+						while (princesIterator.hasNext()) {
+							msg += currentHandshakeID++;
+							byte[] buf = msg.getBytes();
+							currentPrinceAddress = InetAddress.getByName(((ErraNode)princesIterator.next()).getIPAddress());
+							handshakePacket = new DatagramPacket(buf, buf.length, currentPrinceAddress, ErraNodeVariables.PORT_PRINCE_FOREIGN_AMBASSADOR_LISTENER);
+							ambassadorDepartureTimes.put(currentHandshakeID, System.nanoTime());
+							datagramSocket.send(handshakePacket);
+							//						System.out.println("...");	//TODO remove me
 						}
-						periodAskForALiveAgain = (sumTripTime / ambassadorTripDuration.size()) * 2;	// twice the mean value
-						System.out.println("Period ask for alive again set to: " + periodAskForALiveAgain + " milliseconds.");
-						break;
+						//					System.out.println("Aspetto due secondi i miei ambasciatori..");	//TODO remove me
+						sleep(1000 * 2);	// wait some seconds...
+						if (ambassadorTripDuration.isEmpty()) {
+							System.out.println("No ambassador answered: the procedure will be repeated.");
+						} else {
+							long sumTripTime = 0;
+							for (Map.Entry<Integer, Long> entry : ambassadorTripDuration.entrySet()) {
+								sumTripTime += entry.getValue();
+							}
+							periodAskForALiveAgain = (sumTripTime / ambassadorTripDuration.size()) * 2;	// twice the mean value
+							periodAskForAlive = 2^(TIMES_TO_ASK_AGAIN) * periodAskForALiveAgain * 2;	// in totale chiedo 2^(TIMES_TO_ASK_AGAIN) - 1 volte. Raddoppio questo tempo.
+							System.out.println("Period ask for alive again set to: " + periodAskForALiveAgain + " milliseconds.");
+							System.out.println("Period ask for alive set to: " + periodAskForAlive + " milliseconds.");
+							break;
+						}
+					} catch (SocketException e) {
+						e.printStackTrace();
+					} catch (UnknownHostException e) {
+						e.printStackTrace();
+					} catch (IOException e) {
+						e.printStackTrace();
+					} catch (InterruptedException e) {
+						e.printStackTrace();
 					}
-				} catch (SocketException e) {
-					e.printStackTrace();
-				} catch (UnknownHostException e) {
-					e.printStackTrace();
-				} catch (IOException e) {
-					e.printStackTrace();
-				} catch (InterruptedException e) {
-					e.printStackTrace();
 				}
+				myAmbassadorReceiverSocket.close();
 			}
 			updatePrinceState(PrinceState.STATE_RUNNING);
-			myAmbassadorReceiverSocket.close();
 			System.out.println("I won't accept other ambassadors of mine any more.");
 		}
 	}	// InitializePrinceNodeThread
@@ -718,7 +725,6 @@ public class PrinceNode extends NewErraClient {
 	private synchronized void updateRegister(String erraIPAddress, NodeState nodeState) {
 		rollCallRegister.put(erraIPAddress, nodeState);
 		nodes.get(erraIPAddress).setNodeState(nodeState);	// TODO problemi qui?
-		showNetworkTable();
 	}
 
 	private synchronized void spreadNetworkChanges(ErraNode[] changedNodes, boolean added) {

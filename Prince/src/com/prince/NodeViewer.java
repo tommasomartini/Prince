@@ -52,13 +52,14 @@ public class NodeViewer extends JPanel {
 			data[rowIndex][0] = currentNode.getIPAddress();
 			if (currentNode.isInMyCounty()) {
 				data[rowIndex][1] = "Yes";
+				data[rowIndex][2] = "ME (" + prince.getIPAddress() + ")";
 			} else {
 				data[rowIndex][1] = "No";
-			}
-			if (currentNode.getBootstrapOwner() == null) {
-				data[rowIndex][2] = STRING_UNKNOWN;
-			} else {
-				data[rowIndex][2] = currentNode.getBootstrapOwner().getIPAddress();
+				if (currentNode.getBootstrapOwner() == null) {
+					data[rowIndex][2] = STRING_UNKNOWN;
+				} else {
+					data[rowIndex][2] = currentNode.getBootstrapOwner().getIPAddress();
+				}
 			}
 			data[rowIndex][3] = simpleDateFormat.format(currentNode.getJoinTime());
 			switch (currentNode.getNodeState()) {
@@ -88,7 +89,7 @@ public class NodeViewer extends JPanel {
 			}
 			rowIndex++;
 		}
-		data[rowIndex][0] = "ME: " + prince.getIPAddress();
+		data[rowIndex][0] = "ME (" + prince.getIPAddress() + ")";
 		data[rowIndex][1] = "-";
 		data[rowIndex][2] = NO_OWNER;
 		data[rowIndex][3] = simpleDateFormat.format(prince.getJoinTime());
