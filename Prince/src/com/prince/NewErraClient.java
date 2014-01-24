@@ -81,50 +81,8 @@ public class NewErraClient
 
 	public static class TestOptionPanel 
 	{
+
 		public TestOptionPanel() 
-		{
-			EventQueue.invokeLater(new Runnable() {
-				@Override
-				public void run() {
-
-					try {
-						UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-					} catch (ClassNotFoundException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					} catch (InstantiationException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					} catch (IllegalAccessException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					} catch (UnsupportedLookAndFeelException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-
-
-					JPanel panel = new JPanel();
-					panel.add(new JLabel("Please make a selection:"));
-					DefaultComboBoxModel model = new DefaultComboBoxModel();
-					model.addElement("Chocolate");
-					model.addElement("Strewberry");
-					model.addElement("Vanilla");
-					JComboBox comboBox = new JComboBox(model);
-					panel.add(comboBox);
-
-					int result = JOptionPane.showConfirmDialog(null, panel, "Flavor", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
-					switch (result) {
-					case JOptionPane.OK_OPTION:
-						System.out.println("You selected " + comboBox.getSelectedItem());
-						break;
-					}
-
-				}
-			});
-		}
-
-		public TestOptionPanel(List<String> IP) 
 		{
 			EventQueue.invokeLater(new Runnable() 
 			{
@@ -447,6 +405,7 @@ public class NewErraClient
 
 			while(!isConnected && candidate.size()>0)
 			{
+			
 				if (candidate.size()>=5)
 				{
 					//Sono troppi per misurare il RTT di tutti...meglio sceglierne uno a caso
@@ -463,7 +422,6 @@ public class NewErraClient
 				}
 				else
 				{
-
 					double minRTT=Double.MAX_VALUE;
 					String bestIP="";
 					for (Iterator<String> i = candidate.iterator(); i.hasNext();)
@@ -575,8 +533,8 @@ public class NewErraClient
 				}
 				catch(SocketException e)
 				{
-					System.out.println("Il socket UDP che risponde ai ? e' stato chiuso.");
-					return;	//Questo chiude anche il thread
+					System.out.println("The UDP alive socket has been closed.");
+					return;	
 				}
 				String message=new String(receivedPacket.getData(),0,receivedPacket.getLength());
 				if (message.charAt(0)!='?')
@@ -586,8 +544,7 @@ public class NewErraClient
 				}
 				else
 				{
-					//String sentence = "!@"+ERRA_ADDRESS;
-					String sentence = "!";					//Spero che questa vada bene
+					String sentence = "!";					
 					sendData = sentence.getBytes();
 					DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, receivedPacket.getAddress(), UDP_ALIVE_ANSWER);
 					UDP.send(sendPacket);
@@ -629,14 +586,14 @@ public class NewErraClient
 						s=server.accept();							//Quanto ho una richiesta di connessione la accetto!
 					}
 					catch (SocketException e)
-					{	System.out.println("Il socket TCP per il refresh della topologia e' stato chiuso");
+					{	System.out.println("The TCP topology socket has been closed.");
 					return;
 					}
 					BufferedReader streamFromServer = new BufferedReader(new InputStreamReader(s.getInputStream()));
 					String table="";
 					table=streamFromServer.readLine();
 					s.close();
-					System.out.println("Aggiornamento sulla topologia di ERRA: "+table);
+					//System.out.println("Aggiornamento sulla topologia di ERRA: "+table);
 
 					if (table.charAt(0)=='T') //Significa che il bootstrap segnala la variazione su un singolo nodo, devo aggiornare solo una parte della topologia
 					{	
@@ -728,7 +685,7 @@ public class NewErraClient
 					String IP=A.toString().substring(1, A.toString().indexOf(":"));
 					if (!(nodes.containsKey(IP)))
 					{
-						System.err.println("Richiesta abusiva, pacchetto non inoltrato, segnalo all'utente che è un bastardo abusivo nella rete");
+						System.err.print("The forward request comes from an unknown host, the packet will be dropped. Informing the sender...");
 						Socket AbusiveSocket = new Socket();
 						try
 						{
@@ -736,13 +693,14 @@ public class NewErraClient
 							DataOutputStream streamToServer = new DataOutputStream(AbusiveSocket.getOutputStream());
 							streamToServer.writeBytes("TO" + '\n');	
 							AbusiveSocket.close();
+							System.err.println("sender has been told he is out of the net!")
 						}
 						catch (IOException e)
-						{System.err.println("Non sono riuscito a raggiungere l'abusivo, peggio per lui!");}
+						{System.err.println("sender unreachable.");}
 					}
 					else
 					{
-						System.out.println("Faccio il forwarding di un pacchetto autorizzato che proviene da "+A.toString());
+						System.out.print("Incoming packet from "+IP.toString()+"...");
 						forward F=new forward(s);
 						F.start();
 					}
@@ -750,7 +708,7 @@ public class NewErraClient
 			}
 			catch (IOException e)
 			{
-				System.out.println("Il socket TCP per il forwarding e' stato chiuso");
+				System.out.println("TCP forwarding socket has been closed");
 			}
 		}	
 
@@ -801,6 +759,7 @@ public class NewErraClient
 				if (rL==1)
 				{
 					//Il pacchetto ha raggiunto il destinatario, che sono io!
+					System.out.println("the incoming packet is intended for me!");
 					byte[] header=new byte[hL];
 					System.arraycopy(packet, 12, header, 0, hL);
 					String sH=new String(header, "US-ASCII");
@@ -827,29 +786,52 @@ public class NewErraClient
 
 					try
 					{
+						System.out.println("the incoming packet is NOT intended for me.");
+						System.out.print("Start forwarding to "+nextIP+"...");
 						Socket TCPClientSocket = new Socket();
 						TCPClientSocket.connect(new InetSocketAddress(nextIP,TCP_PORT_FORWARDING),CONNECTION_TIMEOUT);
 						OutputStream out = TCPClientSocket.getOutputStream(); 
 						DataOutputStream dos = new DataOutputStream(out);
 						dos.write(forwardPacket, 0, forwardPacket.length);
 						TCPClientSocket.close(); 
-						System.out.println("Forwarding all'indirizzo "+nextIP+" completato.");	
+						System.out.println("forwarding completed successfully.");
 					}
 					catch (IOException e)
 					{
-						System.err.println("Forwarding all'indirizzo "+nextIP+" fallito.");	
+						System.err.println("forwarding has failed. The next hop is not alive.");	
 						if (rL==2)
 						{
-							System.err.println("Il destinatario non è più raggiungibile");
+							System.err.println("The packet is intended for an host unreachable, the packet will be dropped");
 						}
 						else
 						{
 							byte[] destinatario=new byte[4];				
 							System.arraycopy(forwardPacket, 8+(rL-2)*4, destinatario, 0, 4);		
 							String IPDest=InetAddress.getByAddress(destinatario).getHostAddress();
-							System.out.println("Invio direttamente a "+IPDest);
+							
+							//Devo costruire adHoc un nuovo pacchetto con solo l'indirizzo
+							
+							
+							
+							System.out.print("Start forwarding to final destination("+IPDest+")...");
+						
+							try
+							{
+								Socket TCPClientSocket = new Socket();
+								TCPClientSocket.connect(new InetSocketAddress(IPDest,TCP_PORT_FORWARDING),CONNECTION_TIMEOUT);
+								OutputStream out = TCPClientSocket.getOutputStream(); 
+								DataOutputStream dos = new DataOutputStream(out);
+								dos.write(forwardPacket, 0, forwardPacket.length);
+								TCPClientSocket.close(); 
+								System.out.println("forwarding completed.");
+							}
+							catch (IOException h)
+							{
+								System.out.print("failed.");
+							}
+							
+							
 						}
-
 					}
 				}
 				return;	
@@ -877,11 +859,12 @@ public class NewErraClient
 			String leaveMessage="E@"+getMyIP();
 			DataOutputStream streamToServer = new DataOutputStream(TCPClientSocket.getOutputStream());
 			streamToServer.writeBytes(leaveMessage + '\n');	
-			TCPClientSocket.close(); 
+			TCPClientSocket.close();
+			System.out.println("Bootstrap node has been noticed I'm leaving");
 		}
 		catch(IOException e)
 		{
-			System.err.println("Il bootstrap non e' più raggiungibile");
+			System.err.println("Bootstrap node has not been noticed I'm leaving because it's unreachable.");
 		}
 	}
 
@@ -1060,7 +1043,7 @@ public class NewErraClient
 		{
 			String path=chooser.getSelectedFile().getPath();
 
-			/*System.out.println("Inserire l'IP del destinatario tra quelli elencati.");
+			System.out.println("Inserire l'IP del destinatario tra quelli elencati.");
 
 			for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) 
 			{
@@ -1080,13 +1063,9 @@ public class NewErraClient
 				{IPDest=input;break;}
 				else
 				{System.err.println("Hai inserito un destinatario non valido, riprova.");}
-			}*/
-
-			TestOptionPanel P=new TestOptionPanel();
-			if(destinatarioScelto.equals(""))return;
-
-			LinkedList<byte[]> pcks=wrap(path,destinatarioScelto);		//Pacchettizzo il file e mi preparo per l'invio
-
+			}
+			LinkedList<byte[]> pcks=wrap(path,IPDest);
+			
 			if (pcks==null || pcks.size()==0)
 			{
 				System.err.println("Impossibile acquisire il file specificato.");
@@ -1100,19 +1079,42 @@ public class NewErraClient
 				byte[] next=new byte[4];				//Estraggo il primo IP della catena
 				System.arraycopy(packet, 8, next, 0, 4);
 				String nextIP=InetAddress.getByAddress(next).getHostAddress();
+				Socket TCPClientSocket=null;
+				boolean sendOK=false;
 				try
 				{	
-					Socket TCPClientSocket = new Socket();
+					TCPClientSocket = new Socket();
 					TCPClientSocket.connect(new InetSocketAddress(nextIP,TCP_PORT_FORWARDING),CONNECTION_TIMEOUT);
 					OutputStream out = TCPClientSocket.getOutputStream(); 
 					DataOutputStream dos = new DataOutputStream(out);
 					dos.write(packet, 0, packet.length);
 					TCPClientSocket.close(); 
-					System.out.println("Il pacchetto "+(i++)+"/"+pcks.size()+" all'indirizzo IP "+nextIP+" e' stato inviato");	
+					System.out.println("The packet "+(i)+"/"+pcks.size()+" has been sent to "+nextIP);	i++;
+					sendOK=true;
 				}
 				catch (IOException e)
 				{	
-					System.err.println("Il pacchetto "+(i++)+"/"+pcks.size()+" all'indirizzo IP "+nextIP+" non e' stato recapitato");	
+					System.err.print("Packet "+i+" has not been sent to "+nextIP);	
+				}
+				
+				if (!(sendOK))
+				{
+					System.err.println("...sending the packet to the final host.");	
+					try
+					{	
+						TCPClientSocket = new Socket();
+						TCPClientSocket.connect(new InetSocketAddress(IPDest,TCP_PORT_FORWARDING),CONNECTION_TIMEOUT);
+						OutputStream out = TCPClientSocket.getOutputStream(); 
+						DataOutputStream dos = new DataOutputStream(out);
+						dos.write(packet, 0, packet.length);
+						TCPClientSocket.close(); 
+						System.out.println("The packet "+(i)+"/"+pcks.size()+" has successfully been sent to "+IPDest);	i++;
+						sendOK=true;
+					}
+					catch (IOException e)
+					{	
+						System.err.println("Packet dropped, "+IPDest+" is unreachable");	
+					}
 				}
 			}
 			System.out.println("File processing completed");
