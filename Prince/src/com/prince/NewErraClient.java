@@ -1,6 +1,5 @@
 package com.prince;
 
-
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
@@ -32,6 +31,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -50,135 +50,108 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
-
 public class NewErraClient 
 {
-	public static int CONNECTION_TIMEOUT=5000;		
-	public static int PENDING=5000;
-	
-	
-	public static int MINIMUM_PAYLOAD=100;
-	public static int MAX_PAYLOAD=2048000;
-
-	public static int UDP_PORT_ALIVE=7000;
-	public static int UDP_ALIVE_ANSWER=8003;
-
-	public static int TCP_PORT_WELCOME=7001;
-	public static int TCP_PORT_FORWARDING=7002;
-	public static int TCP_PORT_SENDING=7003;
-	public static int TCP_PORT_REFRESH=7004;
-	public static int TCP_BOOTSTRAP_PORT_WELCOME=8001;
-	public static int TCP_BOOTSTRAP_PORT_GOODBYE=8002;
-	public static int TCP_THRASHEDOUT=8004;
-	public static int TCP_FILERECEIVED=8005;
-	
 	public static boolean TO=false;
-	
 	public static String BOOTSTRAP_ADDRESS="";
-
-	public static fileManager FM;		//Questo oggetto, disponibile a tutti, si occuperà di gestire i file pacchettizzati
-
-
-	//============== Classi per gestire la generazione di files e il loro riassemblaggio  ====================
+	public static fileManager FM;
 
 	public static class file
-	{	public String fileName;
+	{	
+		public String fileName;
 		public int packets;
 		public String sender;
-		public java.util.Date addDate;
+		public Date addDate;
 		private List<filePart> parts = new ArrayList<filePart>();
 
-	public file()
-	{
-		fileName="";sender="";packets=0;addDate=(java.util.Date) Calendar.getInstance().getTime();
-	}
-
-	public file(String name,int n,String S)
-	{
-		fileName=name;
-		packets=n;
-		sender=S;
-		addDate=(java.util.Date) Calendar.getInstance().getTime();
-	}
-
-	public boolean add(int SN,byte[] data) 			//Restituisco true se l'aggiunta del pacchetto ha completato il file
-	{
-		filePart t=new filePart(SN,data);
-		parts.add(t);
-		System.out.println("Received packet "+SN+ " ["+data.length+" bytes] belonging to "+fileName);
-		if (parts.size()==packets)
+		public file(String name,int n,String S)
 		{
-			//Ora che ho tutti gli elementi estraggo, riordino, scrivo!
-			Collections.sort(parts);
-			OutputStream output = null;
-			try{
+			fileName=name;
+			packets=n;
+			sender=S;
+			addDate=Calendar.getInstance().getTime();
+		}
 
-				if (fileName.lastIndexOf("\\")!=-1)
-				{
-					String FN=fileName.substring(fileName.lastIndexOf("\\"));
-					FN=FN.replace("\\", "");
-					output = new BufferedOutputStream(new FileOutputStream(FN));
-				}
-				else
-					output = new BufferedOutputStream(new FileOutputStream(fileName));
+		public boolean add(int SN,byte[] data)
+		{
+			filePart t=new filePart(SN,data);
+			parts.add(t);
+			System.out.println("Received packet "+SN+ " ["+data.length+" bytes] belonging to "+fileName);
+			if (parts.size()==packets)
+			{
+				Collections.sort(parts);
+				OutputStream output = null;
+				try{
 
-				try
-				{
-					for (Iterator<filePart> i = parts.iterator(); i.hasNext();)
+					if (fileName.lastIndexOf("\\")!=-1)
 					{
-						filePart f = (filePart)(i.next());
-						output.write(f.data);
+						String FN=fileName.substring(fileName.lastIndexOf("\\"));
+						FN=FN.replace("\\", "");
+						output = new BufferedOutputStream(new FileOutputStream(FN));
 					}
-				}
-				finally
-				{	
-					System.out.println("File "+fileName+", coming from "+sender+", has been correctly written.");
-					output.close();
-					
-					Socket ACKSocket = new Socket();
+					else
+						output = new BufferedOutputStream(new FileOutputStream(fileName));
 					try
 					{
-						ACKSocket.connect(new InetSocketAddress(sender,TCP_FILERECEIVED),CONNECTION_TIMEOUT);
-						DataOutputStream streamToServer = new DataOutputStream(ACKSocket.getOutputStream());
-						streamToServer.writeBytes(getMyIP()+" has correctly received "+fileName + "!"+'\n');	
-						ACKSocket.close();
-						System.out.println("ACK sent!");
+						for (Iterator<filePart> i = parts.iterator(); i.hasNext();)
+						{
+							filePart f = (filePart)(i.next());
+							output.write(f.data);
+						}
 					}
-					catch (IOException e)
-					{System.err.println("ACK has not been sent");}
+					finally
+					{	
+						Date d1 = addDate;
+						Date now=Calendar.getInstance().getTime();
 
+						long diff = now.getTime()-d1.getTime();
+						float TX=(float)(diff/1000);
+
+						System.out.println("File "+fileName+", coming from "+sender+", has been correctly written. Transmission time: "+TX+" seconds.");	
+						output.close();
+
+						Socket ACKSocket = new Socket();
+						try
+						{
+							ACKSocket.connect(new InetSocketAddress(sender,ErraNodeVariables.TCP_FILERECEIVED),ErraNodeVariables.CONNECTION_TIMEOUT);
+							DataOutputStream streamToServer = new DataOutputStream(ACKSocket.getOutputStream());
+							streamToServer.writeBytes(getMyIP()+" has correctly received "+fileName + "!"+'\n');	
+							ACKSocket.close();
+						}
+						catch (IOException e)
+						{System.err.println("I haven't been able to notify the sender for the correct reception of file.");}
+
+					}
+					return true;
 				}
-				return true;
+				catch (IOException e)
+				{System.err.println("Error during the file generation.");}
 			}
-			catch (IOException e)
-			{System.err.println("Impossibile generare il file");}
-		}
-		return false;
-	}	
+			return false;
+		}	
 
-	private static class filePart implements Comparable<filePart>
-	{
-		public filePart(int N,byte[] d)
+		private static class filePart implements Comparable<filePart>
 		{
-			SN=N;
-			data=new byte[d.length];
-			System.arraycopy(d, 0, data, 0, d.length);
+			public int SN;
+			public byte[] data;
+			
+			public filePart(int N,byte[] d)
+			{
+				SN=N;
+				data=new byte[d.length];
+				System.arraycopy(d, 0, data, 0, d.length);
+			}
+			public int compareTo(filePart compareObject) 
+			{ 
+				if (SN < compareObject.SN) return -1; else if (SN == compareObject.SN) return 0; else return 1;
+			}
 		}
-		public int compareTo(filePart compareObject) 
-		{ 
-			if (SN < compareObject.SN) return -1; else if (SN == compareObject.SN) return 0; else return 1;
-		}
-
-		public int SN;
-		public byte[] data;
-
+	
 	}
-	}
-
 
 	public static class fileManager
 	{
-		private List<file> fileList; 		//Contiene i file di cui ho ricevuto parte del contenuto e che stanno per essere scritti
+		private List<file> fileList;
 
 		public fileManager(){fileList=null;}
 
@@ -192,14 +165,13 @@ public class NewErraClient
 
 			String filename=header.substring(0,header.indexOf("@"));
 			header=header.substring(header.indexOf("@")+1);
-			
+
 			String sender=header.substring(0,header.indexOf("@"));
-			
-			
+
 			boolean esito=false;
 			file t=null;
 
-			if (fileList==null)				//Nessun file e' presente, significa che tutti i file sono stati scritti e questa e' la primissima parte di un file che richevo
+			if (fileList==null)
 			{
 				t=new file(filename,parts,sender);
 				esito=t.add(SN,packet);
@@ -218,10 +190,8 @@ public class NewErraClient
 						esito=t.add(SN,packet);
 					}
 				}
-
 				if(!pending)
 				{
-					//Significa che, sebbene vi siano altri file pending, questo frammento appartiene ad un altro file!
 					t=new file(filename,parts,sender);
 					t.add(SN,packet);
 					esito=fileList.add(t);
@@ -229,39 +199,91 @@ public class NewErraClient
 			}
 			if (esito)
 			{
-				//Significa che il frammento ricevuto ha completato il file, che va quindi rimosso da quelli in sospeso
-				fileList.remove(t);
+				fileList.remove(t);			//The add operation has completed the file, remove it!
 			}
 		}
 
-		public int filePending(){return (fileList==null)?0:fileList.size();}
+		public int filePending()
+		{return (fileList==null)?0:fileList.size();}
+
+		public void showOldFiles()
+		{
+			if(fileList==null || fileList.size()==0)
+			{return;}
+
+
+			System.out.println("========== Pending files ==========");
+			System.out.println("Filename\tFirst packet arrival date\tTime limit for arrival\t\tReceived packets");
+
+			file toRemove=null;
+
+			for (Iterator<file> i = fileList.iterator(); i.hasNext();)
+			{
+				file t = (file)(i.next());
+
+				System.out.print(t.fileName+'\t');
+				System.out.print(t.addDate.toLocaleString()+'\t'+'\t');
+
+				double expectedTXTime=((ErraNodeVariables.MAX_PAYLOAD*8*t.packets)/(10e8))*10000*nodes.size();
+				long TX=(long)(expectedTXTime);
+
+				Date expire=new Date(t.addDate.getTime()+TX);
+
+				System.out.print(expire.toLocaleString()+'\t'+'\t');
+
+				System.out.println(t.parts.size()+"/"+t.packets);
+
+				Date d1 = t.addDate;
+				Date now=Calendar.getInstance().getTime();
+
+				long diff = now.getTime()-d1.getTime() ;
+
+				if(diff>expectedTXTime*ErraNodeVariables.beta)
+				{
+					System.out.println("The first packet of file "+t.fileName+" has been received at "+t.addDate.toLocaleString());
+					System.out.println("More then "+(int)((expectedTXTime*ErraNodeVariables.beta)/1000)+" seconds has passed, and the file is still incomplete. It will now be dropped and I ask for the retransmission.");
+					toRemove=t;
+					break;
+				}
+			}
+
+			if(toRemove!=null)
+			{
+				fileList.remove(toRemove);
+				Socket ACKSocket = new Socket();
+				try
+				{
+					ACKSocket.connect(new InetSocketAddress(toRemove.sender,ErraNodeVariables.TCP_FILERECEIVED),ErraNodeVariables.CONNECTION_TIMEOUT);
+					DataOutputStream streamToServer = new DataOutputStream(ACKSocket.getOutputStream());
+					streamToServer.writeBytes(getMyIP()+" has NOT RECEIVED "+toRemove.fileName + "! Please, send it again!"+'\n');	
+					ACKSocket.close();
+					System.out.println("I asked the sender for the retransmission");
+				}
+				catch (IOException e)
+				{System.err.println("The sender is not available anymore.");}
+			}	
+		}
 
 	}
 
-	//Questa struttura contiene tutti i nodi attivi
-
 	public static Map<String, ErraNode> nodes;
-
-	//============== Funzione per inizializzare il sistema ERRA e scoprirne la topologia ======================
 
 	public static boolean initializeErra(String address)
 	{
 		nodes = new HashMap<String, ErraNode>();
-
 		try
 		{
 			Socket TCPClientSocket = new Socket();
-
 			try
 			{
-				TCPClientSocket.connect(new InetSocketAddress(address,TCP_BOOTSTRAP_PORT_WELCOME),CONNECTION_TIMEOUT);
+				TCPClientSocket.connect(new InetSocketAddress(address,ErraNodeVariables.PORT_PRINCE_JOINED_NODE),ErraNodeVariables.CONNECTION_TIMEOUT);
 			}
 			catch (IOException e)
-			{	System.err.println("Impossibile raggiungere il bootstrap node "+address);
-			TCPClientSocket.close();
-			return false;
+			{	
+				TCPClientSocket.close();
+				return false;
 			}
-			System.out.println("...connection established.");
+			System.out.println("...connection established, waiting for the welcome table.");
 
 			BOOTSTRAP_ADDRESS=address;
 
@@ -272,20 +294,14 @@ public class NewErraClient
 
 			streamToServer.writeBytes(joinMessage + '\n');	
 
-			//Aspetto la risposta dal bootstrap che contiene la topologia della rete
 			String fromServer="";
 			fromServer=streamFromServer.readLine();
 			TCPClientSocket.close(); 
 
-			//Ora analizzo la stringa per ricostruire la topologia della rete
 			if (fromServer.charAt(0)=='W')
 			{
-				fromServer=fromServer.substring(2);		//Taglio la welcome portion
+				fromServer=fromServer.substring(2);
 				updateStructure(fromServer);		
-			}
-			else
-			{
-				System.err.println("Ho ricevuto sulla porta "+TCP_PORT_WELCOME+" un dato che non e' una tabella della rete!!");
 			}
 		}
 		catch (ConnectException e)
@@ -301,15 +317,11 @@ public class NewErraClient
 		return true;
 	}
 
-	//=================== Riceve una stringa contenente l'intera topologia di rete e aggiorna =================
-
 	public static void updateStructure(String fromServer)
 	{
 		nodes.clear();
-		//Ora procedo alla memorizzazione nei vettori della rete
 		while(fromServer.length()>0)
 		{
-			//Estraggo host per host le informazioni
 			String IP=fromServer.substring(0,fromServer.indexOf('#'));
 			ErraNode e=new ErraNode(IP);
 			nodes.put(IP,e);
@@ -317,14 +329,11 @@ public class NewErraClient
 		}
 	}
 
-	//=================== Gestione dell'inizializzazione corretta del sistema
-
-
 	public static boolean openBootstrapFile() throws IOException
 	{	
 		boolean isConnected=false;
-		JFileChooser chooser = new JFileChooser("Ciao");				//Mostro una finestra per la scelta del file da inviare
 
+		JFileChooser chooser = new JFileChooser("");				//Mostro una finestra per la scelta del file da inviare
 		chooser.setCurrentDirectory(new File("."));
 		chooser.setDialogTitle("Choose bootstrap list");
 		int r = chooser.showOpenDialog(new JFrame());
@@ -332,7 +341,6 @@ public class NewErraClient
 		if (r == JFileChooser.APPROVE_OPTION) 
 		{
 			String path=chooser.getSelectedFile().getPath();
-			//Ora apro questo file che contiene gli indirizzi IP di tutti i bootstrap
 			File file = new File(path);
 			BufferedReader reader = null;
 
@@ -363,10 +371,10 @@ public class NewErraClient
 
 			while(!isConnected && candidate.size()>0)
 			{
-			
+
 				if (candidate.size()>=5)
 				{
-					//Sono troppi per misurare il RTT di tutti...meglio sceglierne uno a caso
+
 					Collections.shuffle(candidate);
 					String CandidateIP=candidate.get(0);
 					System.out.print("Connecting with "+CandidateIP+"...");
@@ -376,6 +384,18 @@ public class NewErraClient
 					{
 						System.out.println("connection with "+CandidateIP+" has failed.");
 						candidate.remove(CandidateIP);
+					}
+				}
+				else if (candidate.size()==1)
+				{
+					String bestIP=candidate.get(0);
+					System.out.print("Connecting with "+bestIP+"...");
+					if(initializeErra(bestIP))
+					{return true;}
+					else
+					{
+						System.err.println("connection with "+bestIP+" has failed.");
+						return false;
 					}
 				}
 				else
@@ -392,16 +412,16 @@ public class NewErraClient
 							minRTT=RTT;
 						}
 					}
-					//Da questa cosa ho tirato fuori un candidato
-					if(bestIP.equals(""))
-						return false;		//Non ho nemmeno ping!
 
-					System.out.print("Connecting with "+bestIP+" (RTT="+minRTT+")");
+					if(bestIP.equals(""))
+						return false;
+
+					System.out.print("Connecting with "+bestIP+" (RTT="+minRTT+")...");
 					if(initializeErra(bestIP))
 					{return true;}
 					else
 					{
-						System.out.println("Connection with "+bestIP+" has failed.");
+						System.err.println("connection with "+bestIP+" has failed.");
 						candidate.remove(bestIP);
 					}
 				}
@@ -411,14 +431,11 @@ public class NewErraClient
 	}
 
 	public static boolean validate(final String ip)
-	{        String PATTERN = 
-	"^([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
-			"([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
-			"([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
-			"([01]?\\d\\d?|2[0-4]\\d|25[0-5])$";
-	Pattern pattern = Pattern.compile(PATTERN);
-	Matcher matcher = pattern.matcher(ip);
-	return matcher.matches();             
+	{        
+		String PATTERN = "^([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." + "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." + "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +"([01]?\\d\\d?|2[0-4]\\d|25[0-5])$";
+		Pattern pattern = Pattern.compile(PATTERN);
+		Matcher matcher = pattern.matcher(ip);
+		return matcher.matches();             
 	}
 
 	public static String getMyIP()
@@ -439,7 +456,6 @@ public class NewErraClient
 					if (ip.isSiteLocalAddress())
 					{
 						ipAddress = ip.getHostAddress();
-
 					}
 				}
 			}
@@ -449,6 +465,9 @@ public class NewErraClient
 
 	public static double measureRTT(String IP) throws IOException
 	{
+		if(!(validate(IP)))return 0;
+		if(System.getProperty("os.name").contains("Windows"))return 0;
+
 		String command[] = {"ping", "-c2","-w2", IP};
 		ProcessBuilder pb = new ProcessBuilder(command);
 		pb.redirectErrorStream(true);
@@ -468,9 +487,6 @@ public class NewErraClient
 		return 0;
 	}
 
-
-	//============== Thread per la gestione delle risposte UDP al bootstrap ==========
-
 	public static final class answerAliveRequest extends Thread
 	{	
 		private static DatagramSocket UDP;
@@ -478,7 +494,7 @@ public class NewErraClient
 		public void run()
 		{	
 			try
-			{	UDP = new DatagramSocket(UDP_PORT_ALIVE);
+			{	UDP = new DatagramSocket(ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
 			byte[] receivedData = new byte[1024];
 			byte[] sendData = new byte[1024];
 
@@ -495,16 +511,11 @@ public class NewErraClient
 					return;	
 				}
 				String message=new String(receivedPacket.getData(),0,receivedPacket.getLength());
-				if (message.charAt(0)!='?')
-				{
-					System.err.println("Ho ricevuto sulla porta "+UDP_PORT_ALIVE+" un pacchetto che non riesco a decodificare.");
-					System.err.println("Il pacchetto e': "+message);
-				}
-				else
+				if (message.charAt(0)=='?')
 				{
 					String sentence = "!";					
 					sendData = sentence.getBytes();
-					DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, receivedPacket.getAddress(), UDP_ALIVE_ANSWER);
+					DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, receivedPacket.getAddress(), ErraNodeVariables.PORT_PRINCE_ALIVE_NODE);
 					UDP.send(sendPacket);
 				}
 			}
@@ -524,9 +535,6 @@ public class NewErraClient
 
 	}
 
-
-	//============== Thread per ascoltare se il bootstrap comunica eventuali refresh sulla topologia ============
-
 	public static class refreshTopology extends Thread
 	{ 	
 		private ServerSocket server;
@@ -538,7 +546,7 @@ public class NewErraClient
 			{
 				try
 				{	
-					server=new ServerSocket(TCP_PORT_REFRESH);		//Mi metto in ascolto in attesa di connessioni TCP
+					server=new ServerSocket(ErraNodeVariables.PORT_SUBJECT_REFRESH_TABLE_LISTENER);		//Mi metto in ascolto in attesa di connessioni TCP
 					try
 					{	
 						s=server.accept();							//Quanto ho una richiesta di connessione la accetto!
@@ -551,9 +559,8 @@ public class NewErraClient
 					String table="";
 					table=streamFromServer.readLine();
 					s.close();
-					//System.out.println("Aggiornamento sulla topologia di ERRA: "+table);
 
-					if (table.charAt(0)=='T') //Significa che il bootstrap segnala la variazione su un singolo nodo, devo aggiornare solo una parte della topologia
+					if (table.charAt(0)=='T')
 					{	
 						//T@-192.168.1.1#192.168.1.3#
 						table=table.substring(2);
@@ -591,10 +598,6 @@ public class NewErraClient
 						}
 						showTopology();
 					}
-					else
-					{
-						System.err.println("Ho ricevuto sulla porta "+TCP_PORT_REFRESH+" un dato che non e' una tabella della rete!!");
-					}
 					server.close();
 					s.close();
 				}
@@ -617,13 +620,9 @@ public class NewErraClient
 				return;
 			}
 			server.close();
-
 		}
 
 	}
-
-
-	//Questo thread ascolta sulla porta 7002. Quando riceve una richiesta di connessione TCP genera un nuovo thread che si occupa di fare forwarding
 
 	public static class listenToForward extends Thread
 	{
@@ -634,7 +633,7 @@ public class NewErraClient
 		{
 			try
 			{
-				serverSocket = new ServerSocket(TCP_PORT_FORWARDING);
+				serverSocket = new ServerSocket(ErraNodeVariables.PORT_SUBJECT_FILE_FORWARDING);
 
 				while(true)
 				{
@@ -647,7 +646,7 @@ public class NewErraClient
 						Socket AbusiveSocket = new Socket();
 						try
 						{
-							AbusiveSocket.connect(new InetSocketAddress(IP,TCP_THRASHEDOUT),CONNECTION_TIMEOUT);
+							AbusiveSocket.connect(new InetSocketAddress(IP,ErraNodeVariables.TCP_THRASHEDOUT),ErraNodeVariables.CONNECTION_TIMEOUT);
 							DataOutputStream streamToServer = new DataOutputStream(AbusiveSocket.getOutputStream());
 							streamToServer.writeBytes("TO" + '\n');	
 							AbusiveSocket.close();
@@ -674,22 +673,15 @@ public class NewErraClient
 		{
 			serverSocket.close();
 		}
-
-
 	}
-
-
-	//Questo thread legge un ERRA PACKET e se e' per me lo tiene, altrimenti fa forwarding
 
 	public static class forward extends Thread
 	{
 		private Socket mySocket;
-
 		public forward(Socket s)
 		{	
 			mySocket=s;
 		}
-
 		public void run()
 		{
 			try
@@ -716,18 +708,16 @@ public class NewErraClient
 
 				if (rL==1)
 				{
-					//Il pacchetto ha raggiunto il destinatario, che sono io!
 					System.out.println("the incoming packet is intended for me!");
 					byte[] header=new byte[hL];
 					System.arraycopy(packet, 12, header, 0, hL);
 					String sH=new String(header, "US-ASCII");
 					byte[] data=new byte[packet.length-12-hL];
 					System.arraycopy(packet, 12+hL, data, 0, data.length);
-					FM.add(sH,data);	//Ficco dentro questo frammento all'interno della classe che si occupa di gestire il tutto*/
+					FM.add(sH,data);								//Ficco dentro questo frammento all'interno della classe che si occupa di gestire il tutto
 				}
 				else
 				{
-					//Il pacchetto non è assolutamente per me
 					//Devo rimuovere il mio IP, ricavare il prossimo e fare il forwarding
 					byte[] next=new byte[4];				//Estraggo il primo IP della catena
 					System.arraycopy(packet, 12, next, 0, 4);		//4byte x Rl, 4 byte per hL, 4 byte mio IP, 4 byte prossimo
@@ -747,7 +737,7 @@ public class NewErraClient
 						System.out.println("the incoming packet is NOT intended for me.");
 						System.out.print("Start forwarding to "+nextIP+"...");
 						Socket TCPClientSocket = new Socket();
-						TCPClientSocket.connect(new InetSocketAddress(nextIP,TCP_PORT_FORWARDING),CONNECTION_TIMEOUT);
+						TCPClientSocket.connect(new InetSocketAddress(nextIP,ErraNodeVariables.PORT_SUBJECT_FILE_FORWARDING),ErraNodeVariables.CONNECTION_TIMEOUT);
 						OutputStream out = TCPClientSocket.getOutputStream(); 
 						DataOutputStream dos = new DataOutputStream(out);
 						dos.write(forwardPacket, 0, forwardPacket.length);
@@ -766,28 +756,26 @@ public class NewErraClient
 							byte[] destinatario=new byte[4];				
 							System.arraycopy(forwardPacket, 8+(rL-2)*4, destinatario, 0, 4);		
 							String IPDest=InetAddress.getByAddress(destinatario).getHostAddress();
-							
-							//TODO: Parte da testare nella maniera più assoluta.
 
 							byte[] directPacket=new byte[packet.length-(rL-1)*4];
-							
+
 							byte[] headlengthByte= new byte[4];
 							headlengthByte=ByteBuffer.allocate(4).putInt(hL).array();
 
 							byte[] routingLengthByte= new byte[4];
 							routingLengthByte=ByteBuffer.allocate(4).putInt(1).array();
-							
+
 							byte[] bytesIP = InetAddress.getByName(IPDest).getAddress();
-							
+
 							System.arraycopy(routingLengthByte, 0, directPacket, 0, 4);
 							System.arraycopy(headlengthByte, 0, directPacket,4, 4);
 							System.arraycopy(bytesIP, 0, directPacket,8, 4);
 							System.arraycopy(packet, 4*(2+rL), directPacket,12, hL);
 							System.arraycopy(packet, 4*(2+rL)+hL, directPacket,12+hL, packet.length-(4*(2+rL)+hL));
-							
+
 							System.out.print("Starting direct forwarding to "+IPDest+"...");
 							Socket TCPClientSocket = new Socket();
-							TCPClientSocket.connect(new InetSocketAddress(IPDest,TCP_PORT_FORWARDING),CONNECTION_TIMEOUT);
+							TCPClientSocket.connect(new InetSocketAddress(IPDest,ErraNodeVariables.PORT_SUBJECT_FILE_FORWARDING),ErraNodeVariables.CONNECTION_TIMEOUT);
 							OutputStream out = TCPClientSocket.getOutputStream(); 
 							DataOutputStream dos = new DataOutputStream(out);
 							dos.write(directPacket, 0, directPacket.length);
@@ -809,20 +797,17 @@ public class NewErraClient
 		}
 	}
 
-	//=================== Segnala al nodo BOOTSTRAP che me ne sto andando ====================
-
 	public static void sayGoodbye() throws UnknownHostException, IOException
 	{
-		//Mi connetto con il bootstrap e gli segnalo la mia dipartita....non mi aspetto niente altro!!
 		Socket TCPClientSocket = new Socket();
 		try
 		{
-			TCPClientSocket.connect(new InetSocketAddress(BOOTSTRAP_ADDRESS, TCP_BOOTSTRAP_PORT_GOODBYE),CONNECTION_TIMEOUT);
+			TCPClientSocket.connect(new InetSocketAddress(BOOTSTRAP_ADDRESS, ErraNodeVariables.PORT_PRINCE_DEPARTED_NODE),ErraNodeVariables.CONNECTION_TIMEOUT);
 			String leaveMessage="E@"+getMyIP();
 			DataOutputStream streamToServer = new DataOutputStream(TCPClientSocket.getOutputStream());
 			streamToServer.writeBytes(leaveMessage + '\n');	
 			TCPClientSocket.close();
-			System.out.println("Bootstrap node has been noticed I'm leaving");
+			System.out.println("Bootstrap node has been noticed I'm leaving-");
 		}
 		catch(IOException e)
 		{
@@ -830,26 +815,19 @@ public class NewErraClient
 		}
 	}
 
-
-	//=================== Visualizza a video la topologia di ERRA ====================
-
 	public static void showTopology()
 	{
 		if(nodes==null)
-		{System.out.println("No nodes in the network.");return;}
+		{System.out.println("No nodes in the network...");return;}
 
-		System.out.println("=======================================");
-		System.out.println(nodes.size()+" nodes active in the network.");
-		System.out.println("IP");
+		System.out.println("=========== NETWORK TOPOLOGY ===========");
+		System.out.println(nodes.size()+" nodes active in the ERRA network.");
 		for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) 
 		{
 			ErraNode currentNode = entry.getValue();
 			System.out.println(currentNode.getIPAddress());
 		}
 	}
-
-
-	//=========Questa funzione apre un file e lo spezzetta in pacchetti pronti per essere inviati!
 
 	public static LinkedList<byte[]> wrap(String filename,String erraDest)
 	{
@@ -859,21 +837,15 @@ public class NewErraClient
 
 		int packets=nodes.size()-2;	
 
-		if (nodes.size()<=3)				//Se siamo in 3 o meno, esiste solo un percorso che posso fare da A a B, quindi spezzo in un solo pacchetto!!
+		if (nodes.size()<=3)
 			packets=1;
 
-		//Non vogliamo che, anche se ci sono diversi utenti nella rete, il file contenga un payload troppo piccolo
-		while((int)file.length()/packets<MINIMUM_PAYLOAD && packets>1)
-		{
+
+		while((int)file.length()/packets<ErraNodeVariables.MINIMUM_PAYLOAD && packets>1)
 			packets--;	
-		}
 
-		//Non vogliamo nemmeno jumbo packets!
-		while((int)file.length()/packets>MAX_PAYLOAD)
-		{
+		while((int)file.length()/packets>ErraNodeVariables.MAX_PAYLOAD)
 			packets++;	
-		}
-
 
 		int packets_length=(int)file.length()/packets;
 		int residual_pck=0;
@@ -888,7 +860,7 @@ public class NewErraClient
 		if (packets==1)
 			System.out.print("Reading file ["+filename+"]. The file will not be splitted. ");
 		else
-			System.out.print("Reading file ["+filename+"]. The file will be splitted into "+packets+" packets. ");
+			System.out.print("Reading file ["+filename+"]. The file will be splitted into "+packets+" packets.");
 
 		LinkedList<byte[]> pcks= new LinkedList<byte[]>();		//Questa lista contiene i pacchetti pronti per essere spediti
 
@@ -932,7 +904,8 @@ public class NewErraClient
 					System.arraycopy(bytesIP, 0, routing, 4*offset++,4);	
 				}
 			}
-			//Infine copio l'indirizzo IP del destinatario in finale!!
+
+			//Infine copio l'indirizzo IP del destinatario!!
 			byte[] bytesIP = InetAddress.getByName(erraDest).getAddress();
 			System.arraycopy(bytesIP, 0, routing, 4*offset,4 );	
 
@@ -984,18 +957,15 @@ public class NewErraClient
 		return pcks;
 	}
 
-	//=========Questa funzione consente di inviare un file ad un erra host ================
-
 	public static void send() throws UnsupportedEncodingException, UnknownHostException 
 	{
-
-		if (nodes.size()<=1)
+		if (nodes==null || nodes.size()<=1)
 		{
-			System.out.println("You are alone in the network!");
+			System.out.println("You are alone in the network, file sending is not allowed.");
 			return;
 		}
 
-		JFileChooser chooser = new JFileChooser();				//Mostro una finestra per la scelta del file da inviare
+		JFileChooser chooser = new JFileChooser();
 		chooser.setCurrentDirectory(new File("."));
 		int r = chooser.showOpenDialog(new JFrame());
 		if (r == JFileChooser.APPROVE_OPTION) 
@@ -1004,11 +974,9 @@ public class NewErraClient
 
 			JPanel panel = new JPanel();
 			panel.add(new JLabel("Choose who the file is intended to: "));
+
 			DefaultComboBoxModel model = new DefaultComboBoxModel();
 
-			if (nodes==null)return;
-
-	
 			for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) 
 			{
 				ErraNode currentNode = entry.getValue();
@@ -1022,9 +990,9 @@ public class NewErraClient
 			panel.add(comboBox);
 
 			int result = JOptionPane.showConfirmDialog(null, panel, "Receiver", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
-			
+
 			String IPDest="";
-			
+
 			if (result==JOptionPane.OK_OPTION)
 			{
 				IPDest=(String)comboBox.getSelectedItem();
@@ -1033,9 +1001,10 @@ public class NewErraClient
 			else return;
 
 			LinkedList<byte[]> pcks=wrap(path,IPDest);
-			
+
 			if (pcks==null || pcks.size()==0)
 			{
+				System.err.println("File will not be sent, packetization has failed.");
 				return;
 			}
 
@@ -1043,17 +1012,18 @@ public class NewErraClient
 			for (Iterator<byte[]> it = pcks.iterator(); it.hasNext();)
 			{
 				byte[] packet = (byte[])(it.next());
-				byte[] next=new byte[4];				//Estraggo il primo IP della catena
+				byte[] next=new byte[4];
 				System.arraycopy(packet, 8, next, 0, 4);
 				String nextIP=InetAddress.getByAddress(next).getHostAddress();
+
 				Socket TCPClientSocket=null;
 				boolean sendOK=false;
-				
-				System.out.print("Start sending packet "+(i)+"/"+pcks.size()+" to "+nextIP+"...");
+
+				System.out.print("Start sending packet "+i+"/"+pcks.size()+" to "+nextIP+"...");
 				try
 				{	
 					TCPClientSocket = new Socket();
-					TCPClientSocket.connect(new InetSocketAddress(nextIP,TCP_PORT_FORWARDING),CONNECTION_TIMEOUT);
+					TCPClientSocket.connect(new InetSocketAddress(nextIP,ErraNodeVariables.PORT_SUBJECT_FILE_FORWARDING),ErraNodeVariables.CONNECTION_TIMEOUT);
 					OutputStream out = TCPClientSocket.getOutputStream(); 
 					DataOutputStream dos = new DataOutputStream(out);
 					dos.write(packet, 0, packet.length);
@@ -1063,9 +1033,9 @@ public class NewErraClient
 				}
 				catch (IOException e)
 				{	
-					System.err.print("Packet "+i+" has not been sent to the next hop ["+nextIP+"]");	
+					System.err.print("packet "+i+" has not been sent to the next hop ["+nextIP+"]");	
 				}
-				
+
 				if (!(sendOK))
 				{
 					System.out.println("...sending the packet to the final host.");	
@@ -1082,24 +1052,24 @@ public class NewErraClient
 						int hL = ByteBuffer.wrap(headerL).getInt();
 
 						byte[] directPacket=new byte[packet.length-(rL-1)*4];
-						
+
 						byte[] headlengthByte= new byte[4];
 						headlengthByte=ByteBuffer.allocate(4).putInt(hL).array();
 
 						byte[] routingLengthByte= new byte[4];
 						routingLengthByte=ByteBuffer.allocate(4).putInt(1).array();
-						
+
 						byte[] bytesIP = InetAddress.getByName(IPDest).getAddress();
-						
-						
+
+
 						System.arraycopy(routingLengthByte, 0, directPacket, 0, 4);
 						System.arraycopy(headlengthByte, 0, directPacket,4, 4);
 						System.arraycopy(bytesIP, 0, directPacket,8, 4);
 						System.arraycopy(packet, 4*(2+rL), directPacket,12, hL);
 						System.arraycopy(packet, 4*(2+rL)+hL, directPacket,12+hL, packet.length-(4*(2+rL)+hL));
-						
+
 						TCPClientSocket = new Socket();
-						TCPClientSocket.connect(new InetSocketAddress(IPDest,TCP_PORT_FORWARDING),CONNECTION_TIMEOUT);
+						TCPClientSocket.connect(new InetSocketAddress(IPDest,ErraNodeVariables.PORT_SUBJECT_FILE_FORWARDING),ErraNodeVariables.CONNECTION_TIMEOUT);
 						OutputStream out = TCPClientSocket.getOutputStream(); 
 						DataOutputStream dos = new DataOutputStream(out);
 						dos.write(directPacket, 0, directPacket.length);
@@ -1127,7 +1097,7 @@ public class NewErraClient
 		{
 			try
 			{
-				serverSocket = new ServerSocket(TCP_THRASHEDOUT);
+				serverSocket = new ServerSocket(ErraNodeVariables.TCP_THRASHEDOUT);
 				while(true)
 				{
 					try
@@ -1135,7 +1105,7 @@ public class NewErraClient
 						s=serverSocket.accept();							//Quanto ho una richiesta di connessione la accetto!
 					}
 					catch (SocketException e)
-					{	System.out.println("Il socket TCP per il le ingiuste emarginazioni e' stato chiuso");
+					{	System.out.println("Thrashed out socket has been closed.");
 					return;
 					}
 					BufferedReader streamFromServer = new BufferedReader(new InputStreamReader(s.getInputStream()));
@@ -1144,15 +1114,14 @@ public class NewErraClient
 					s.close();
 					if (message.equals("TO") && !(TO))
 					{
-						//I've been thrashed out from the system!!!
-						System.err.println("This host, for some reasons, has been thrashed out from the system, file sending is not allowed. All packets coming from this host will be dropped. Restart the program to join the network again.");
+						System.err.println("This host, for some reasons, has been thrashed out from the ERRA system. All packets coming from this host will be dropped. Restart the program to join the ERRA network again.");
 						TO=true;
 					}
 				}
 			}
 			catch (IOException e)
 			{
-				System.out.println("Il socket TCP per il le ingiuste emarginazioni e' stato chiuso");
+				System.out.println("Thrashed out socket has been closed.");
 			}
 		}	
 
@@ -1172,12 +1141,12 @@ public class NewErraClient
 		{
 			try
 			{
-				serverSocket = new ServerSocket(TCP_FILERECEIVED);
+				serverSocket = new ServerSocket(ErraNodeVariables.TCP_FILERECEIVED);
 				while(true)
 				{
 					try
 					{	
-						s=serverSocket.accept();							//Quanto ho una richiesta di connessione la accetto!
+						s=serverSocket.accept();
 					}
 					catch (SocketException e)
 					{	System.out.println("ACK listen server has been closed!");
@@ -1203,11 +1172,33 @@ public class NewErraClient
 
 	}
 
+	public static synchronized void checkFilePending()
+	{
+		FM.showOldFiles();
+	}
+
+	public static class manageRecovery extends Thread
+	{
+		public void run()
+		{
+			try {
+				while(true)
+				{
+					sleep(ErraNodeVariables.PENDING_REFRESH_RATE);
+					checkFilePending();
+				}
+
+			} catch (InterruptedException e) 
+			{
+				e.printStackTrace();
+			}
+		}	
+	}
+
 	public static void main(String[] args) throws InterruptedException, IOException
 	{	
-
 		boolean esito=false;
-		//Leggo i parametri da tastiera per vedere cosa contengono
+
 		if(args.length!=0)
 		{
 			if  (validate(args[0]))
@@ -1230,7 +1221,7 @@ public class NewErraClient
 			System.exit(0);
 			return;
 		}
-		
+
 		showTopology();
 
 		answerAliveRequest imAlive=new answerAliveRequest();
@@ -1241,21 +1232,23 @@ public class NewErraClient
 
 		trashedOut T=new trashedOut();
 		T.start();
-		
+
 		confirmReception C=new confirmReception();
 		C.start();
 
 		FM=new fileManager();
-
 		listenToForward F=new listenToForward();
 		F.start();
+
+		manageRecovery R=new manageRecovery();
+		R.start();
 
 		Scanner keyboard = new Scanner(System.in);
 
 		while(true)
 		{	
 			String input = keyboard.nextLine();
-			if (input.equals("E"))
+			if (input.toUpperCase().equals("E"))
 			{
 				System.out.print("I'm leaving...");
 				try
@@ -1266,7 +1259,6 @@ public class NewErraClient
 					F.releasePort();
 					T.releasePort();
 					C.releasePort();
-					System.out.println("done.");
 					keyboard.close();
 					System.exit(0);
 					return;
@@ -1274,14 +1266,13 @@ public class NewErraClient
 				catch (UnknownHostException e){e.printStackTrace();}
 				catch (IOException e){e.printStackTrace();}
 			}
-			if (input.equals("S"))
+			if (input.toUpperCase().equals("S"))
 			{
 				if (!(TO))
 					send();
 				else
-				{System.err.println("This host is not allowed to send files because it has been thrashed out! Restart the program to join the net again.");}
+				{System.err.println("This host is not allowed to send files because it has been thrashed out! Restart the program and join the ERRA network again.");}
 			}
 		}
 	} 
-
 }

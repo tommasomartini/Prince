@@ -35,20 +35,23 @@ public class ErraNodeVariables {
 	public static final int PORT_PRINCE_ALIVE_LISTENER = 7000;
 	public static final int PORT_PRINCE_MY_AMBASSADOR_LISTENER = 8004;
 	public static final int PORT_PRINCE_FOREIGN_AMBASSADOR_LISTENER = 8005;
-
-	//	Speaking ports
-//	public static final int PORT_PRINCE_ASK_ALIVE_NODES = 8000;		// DEPRECATED -> perche' l'abbiamo messo?
-	//	public static final int PORT_PRINCE_REFRESH_TABLE = 8004;	// DEPRECATED
-
+    public static final int TCP_THRASHEDOUT=8004;
+    public static final int TCP_FILERECEIVED=8005;
+  
 	//	Subject
-	// Listening ports
-	public static final int PORT_SUBJECT_ALIVE_LISTENER = 7000;
-	public static final int PORT_SUBJECT_REFRESH_TABLE_LISTENER = 7004;
 
 	// Speaking ports
+	public static final int PORT_SUBJECT_ALIVE_LISTENER = 7000;
 	public static final int PORT_SUBJECT_HELLO = 7001;
-//	public static final int PORT_SUBJECT_GOODBYE = 7002;	// DEPRECATED
-	//	public static final int PORT_SUBJECT_CONFIRM_ALIVE = 7000;	// DEPRECATED
 	public static final int PORT_SUBJECT_FILE_FORWARDING = 7002;
 	public static final int PORT_SUBJECT_SENDING = 7003;
+	public static final int PORT_SUBJECT_REFRESH_TABLE_LISTENER = 7004;
+	
+	public static final int CONNECTION_TIMEOUT=5000;
+	public static final int MAX_PAYLOAD=2048000;
+	public static final int MINIMUM_PAYLOAD=100;
+	public static final int PENDING_REFRESH_RATE=5000;
+	public static final double beta=3.0;
+	
+	
 }

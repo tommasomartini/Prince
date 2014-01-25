@@ -29,6 +29,7 @@ import javax.swing.JFrame;
 
 import com.prince.ErraNode.NodeState;
 import com.prince.ErraNode.NodeType;
+import com.prince.NewErraClient.manageRecovery;
 
 public class PrinceNode extends NewErraClient {
 
@@ -124,6 +125,8 @@ public class PrinceNode extends NewErraClient {
 		refresh.start();
 		confirmReception C=new confirmReception();
 		C.start();
+		manageRecovery R=new manageRecovery();
+		R.start();
 		////////////////////////	
 
 		PrinceNode princeNode = new PrinceNode();
