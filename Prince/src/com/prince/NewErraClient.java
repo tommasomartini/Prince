@@ -1,6 +1,6 @@
 package com.prince;
 
-import java.awt.EventQueue;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
@@ -42,7 +42,6 @@ import java.util.Random;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
@@ -50,13 +49,14 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.UIManager;
-import javax.swing.UnsupportedLookAndFeelException;
+
 
 public class NewErraClient 
 {
 	public static int CONNECTION_TIMEOUT=5000;		
-
+	public static int PENDING=5000;
+	
+	
 	public static int MINIMUM_PAYLOAD=100;
 	public static int MAX_PAYLOAD=2048000;
 
@@ -69,94 +69,35 @@ public class NewErraClient
 	public static int TCP_PORT_REFRESH=7004;
 	public static int TCP_BOOTSTRAP_PORT_WELCOME=8001;
 	public static int TCP_BOOTSTRAP_PORT_GOODBYE=8002;
-
 	public static int TCP_THRASHEDOUT=8004;
-
+	public static int TCP_FILERECEIVED=8005;
+	
+	public static boolean TO=false;
+	
 	public static String BOOTSTRAP_ADDRESS="";
 
 	public static fileManager FM;		//Questo oggetto, disponibile a tutti, si occuperà di gestire i file pacchettizzati
 
-	public static String destinatarioScelto="";
-
-
-	public static class TestOptionPanel 
-	{
-
-		public TestOptionPanel() 
-		{
-			EventQueue.invokeLater(new Runnable() 
-			{
-				@Override
-				public void run() 
-				{
-					try 
-					{
-						UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-					} catch (ClassNotFoundException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					} catch (InstantiationException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					} catch (IllegalAccessException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					} catch (UnsupportedLookAndFeelException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-
-
-					JPanel panel = new JPanel();
-					panel.add(new JLabel("Please make a selection:"));
-					DefaultComboBoxModel model = new DefaultComboBoxModel();
-
-					if (nodes==null)return;
-
-					for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) 
-					{
-						ErraNode currentNode = entry.getValue();
-						if (!(currentNode.getIPAddress().equals(getMyIP())))
-						{
-							model.addElement((currentNode.getIPAddress()));
-						}
-
-					}
-
-					JComboBox comboBox = new JComboBox(model);
-					panel.add(comboBox);
-
-					int result = JOptionPane.showConfirmDialog(null, panel, "Choose who is the receiver", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
-					switch (result) 
-					{
-					case JOptionPane.OK_OPTION:
-						destinatarioScelto=(String)comboBox.getSelectedItem();
-						System.out.println("You've choosen to send the file to "+destinatarioScelto);
-						break;
-					}
-				}
-			});
-		}
-
-	}
 
 	//============== Classi per gestire la generazione di files e il loro riassemblaggio  ====================
 
 	public static class file
 	{	public String fileName;
-	public int packets;
-	public java.util.Date addDate;
-	private List<filePart> parts = new ArrayList<filePart>();
+		public int packets;
+		public String sender;
+		public java.util.Date addDate;
+		private List<filePart> parts = new ArrayList<filePart>();
 
 	public file()
 	{
-		fileName="";packets=0;addDate=(java.util.Date) Calendar.getInstance().getTime();
+		fileName="";sender="";packets=0;addDate=(java.util.Date) Calendar.getInstance().getTime();
 	}
 
-	public file(String name,int n)
+	public file(String name,int n,String S)
 	{
 		fileName=name;
 		packets=n;
+		sender=S;
 		addDate=(java.util.Date) Calendar.getInstance().getTime();
 	}
 
@@ -164,7 +105,7 @@ public class NewErraClient
 	{
 		filePart t=new filePart(SN,data);
 		parts.add(t);
-		System.out.println("Ricevuto frammento "+SN+ " ["+data.length+" bytes] appartenente al file "+fileName);
+		System.out.println("Received packet "+SN+ " ["+data.length+" bytes] belonging to "+fileName);
 		if (parts.size()==packets)
 		{
 			//Ora che ho tutti gli elementi estraggo, riordino, scrivo!
@@ -191,8 +132,21 @@ public class NewErraClient
 				}
 				finally
 				{	
-					System.out.println("Ricezione del file "+fileName+" completata. Il file e' stato scritto correttamente");
+					System.out.println("File "+fileName+", coming from "+sender+", has been correctly written.");
 					output.close();
+					
+					Socket ACKSocket = new Socket();
+					try
+					{
+						ACKSocket.connect(new InetSocketAddress(sender,TCP_FILERECEIVED),CONNECTION_TIMEOUT);
+						DataOutputStream streamToServer = new DataOutputStream(ACKSocket.getOutputStream());
+						streamToServer.writeBytes(getMyIP()+" has correctly received "+fileName + "!"+'\n');	
+						ACKSocket.close();
+						System.out.println("ACK sent!");
+					}
+					catch (IOException e)
+					{System.err.println("ACK has not been sent");}
+
 				}
 				return true;
 			}
@@ -237,13 +191,17 @@ public class NewErraClient
 			header=header.substring(header.indexOf("@")+1);
 
 			String filename=header.substring(0,header.indexOf("@"));
-
+			header=header.substring(header.indexOf("@")+1);
+			
+			String sender=header.substring(0,header.indexOf("@"));
+			
+			
 			boolean esito=false;
 			file t=null;
 
 			if (fileList==null)				//Nessun file e' presente, significa che tutti i file sono stati scritti e questa e' la primissima parte di un file che richevo
 			{
-				t=new file(filename,parts);
+				t=new file(filename,parts,sender);
 				esito=t.add(SN,packet);
 				fileList= new ArrayList<file>();
 				fileList.add(t);
@@ -264,7 +222,7 @@ public class NewErraClient
 				if(!pending)
 				{
 					//Significa che, sebbene vi siano altri file pending, questo frammento appartiene ad un altro file!
-					t=new file(filename,parts);
+					t=new file(filename,parts,sender);
 					t.add(SN,packet);
 					esito=fileList.add(t);
 				}
@@ -303,7 +261,7 @@ public class NewErraClient
 			TCPClientSocket.close();
 			return false;
 			}
-			System.out.println("...connessione avvenuta correttamente.");
+			System.out.println("...connection established.");
 
 			BOOTSTRAP_ADDRESS=address;
 
@@ -368,7 +326,7 @@ public class NewErraClient
 		JFileChooser chooser = new JFileChooser("Ciao");				//Mostro una finestra per la scelta del file da inviare
 
 		chooser.setCurrentDirectory(new File("."));
-		chooser.setDialogTitle("Scegli il file con l'elenco dei bootstrap attivi");
+		chooser.setDialogTitle("Choose bootstrap list");
 		int r = chooser.showOpenDialog(new JFrame());
 
 		if (r == JFileChooser.APPROVE_OPTION) 
@@ -411,12 +369,12 @@ public class NewErraClient
 					//Sono troppi per misurare il RTT di tutti...meglio sceglierne uno a caso
 					Collections.shuffle(candidate);
 					String CandidateIP=candidate.get(0);
-					System.out.println("Connecting with "+CandidateIP);
+					System.out.print("Connecting with "+CandidateIP+"...");
 					if(initializeErra(CandidateIP))
 					{return true;}
 					else
 					{
-						System.out.println("Connection with "+CandidateIP+" has failed.");
+						System.out.println("connection with "+CandidateIP+" has failed.");
 						candidate.remove(CandidateIP);
 					}
 				}
@@ -438,7 +396,7 @@ public class NewErraClient
 					if(bestIP.equals(""))
 						return false;		//Non ho nemmeno ping!
 
-					System.out.println("Connecting with "+bestIP+" (RTT="+minRTT+")");
+					System.out.print("Connecting with "+bestIP+" (RTT="+minRTT+")");
 					if(initializeErra(bestIP))
 					{return true;}
 					else
@@ -769,7 +727,7 @@ public class NewErraClient
 				}
 				else
 				{
-					//Il pacchetto non è assolutamente per me, purtroppo
+					//Il pacchetto non è assolutamente per me
 					//Devo rimuovere il mio IP, ricavare il prossimo e fare il forwarding
 					byte[] next=new byte[4];				//Estraggo il primo IP della catena
 					System.arraycopy(packet, 12, next, 0, 4);		//4byte x Rl, 4 byte per hL, 4 byte mio IP, 4 byte prossimo
@@ -809,28 +767,32 @@ public class NewErraClient
 							System.arraycopy(forwardPacket, 8+(rL-2)*4, destinatario, 0, 4);		
 							String IPDest=InetAddress.getByAddress(destinatario).getHostAddress();
 							
-							//Devo costruire adHoc un nuovo pacchetto con solo l'indirizzo
+							//TODO: Parte da testare nella maniera più assoluta.
+
+							byte[] directPacket=new byte[packet.length-(rL-1)*4];
 							
+							byte[] headlengthByte= new byte[4];
+							headlengthByte=ByteBuffer.allocate(4).putInt(hL).array();
+
+							byte[] routingLengthByte= new byte[4];
+							routingLengthByte=ByteBuffer.allocate(4).putInt(1).array();
 							
+							byte[] bytesIP = InetAddress.getByName(IPDest).getAddress();
 							
-							System.out.print("Start forwarding to final destination("+IPDest+")...");
-						
-							try
-							{
-								Socket TCPClientSocket = new Socket();
-								TCPClientSocket.connect(new InetSocketAddress(IPDest,TCP_PORT_FORWARDING),CONNECTION_TIMEOUT);
-								OutputStream out = TCPClientSocket.getOutputStream(); 
-								DataOutputStream dos = new DataOutputStream(out);
-								dos.write(forwardPacket, 0, forwardPacket.length);
-								TCPClientSocket.close(); 
-								System.out.println("forwarding completed.");
-							}
-							catch (IOException h)
-							{
-								System.out.print("failed.");
-							}
+							System.arraycopy(routingLengthByte, 0, directPacket, 0, 4);
+							System.arraycopy(headlengthByte, 0, directPacket,4, 4);
+							System.arraycopy(bytesIP, 0, directPacket,8, 4);
+							System.arraycopy(packet, 4*(2+rL), directPacket,12, hL);
+							System.arraycopy(packet, 4*(2+rL)+hL, directPacket,12+hL, packet.length-(4*(2+rL)+hL));
 							
-							
+							System.out.print("Starting direct forwarding to "+IPDest+"...");
+							Socket TCPClientSocket = new Socket();
+							TCPClientSocket.connect(new InetSocketAddress(IPDest,TCP_PORT_FORWARDING),CONNECTION_TIMEOUT);
+							OutputStream out = TCPClientSocket.getOutputStream(); 
+							DataOutputStream dos = new DataOutputStream(out);
+							dos.write(directPacket, 0, directPacket.length);
+							TCPClientSocket.close(); 
+							System.out.println("done.");
 						}
 					}
 				}
@@ -877,14 +839,13 @@ public class NewErraClient
 		{System.out.println("No nodes in the network.");return;}
 
 		System.out.println("=======================================");
-		System.out.println(nodes.size()+" nodi attivi nella rete.");
+		System.out.println(nodes.size()+" nodes active in the network.");
 		System.out.println("IP");
 		for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) 
 		{
 			ErraNode currentNode = entry.getValue();
 			System.out.println(currentNode.getIPAddress());
 		}
-		System.out.println("=======================================");
 	}
 
 
@@ -896,8 +857,7 @@ public class NewErraClient
 		if((int)file.length()==0)
 			return null;
 
-		int packets=nodes.size()-2;		//Questa e' la base di partenza
-
+		int packets=nodes.size()-2;	
 
 		if (nodes.size()<=3)				//Se siamo in 3 o meno, esiste solo un percorso che posso fare da A a B, quindi spezzo in un solo pacchetto!!
 			packets=1;
@@ -987,7 +947,7 @@ public class NewErraClient
 			}
 
 			String header="";
-			header=Integer.toString(SN+i)+"@"+packets+"@"+name+"@";
+			header=Integer.toString(SN+i)+"@"+packets+"@"+name+"@"+getMyIP()+"@";
 
 			byte[] headerB=header.getBytes();
 
@@ -1024,7 +984,6 @@ public class NewErraClient
 		return pcks;
 	}
 
-
 	//=========Questa funzione consente di inviare un file ad un erra host ================
 
 	public static void send() throws UnsupportedEncodingException, UnknownHostException 
@@ -1043,32 +1002,40 @@ public class NewErraClient
 		{
 			String path=chooser.getSelectedFile().getPath();
 
-			System.out.println("Inserire l'IP del destinatario tra quelli elencati.");
+			JPanel panel = new JPanel();
+			panel.add(new JLabel("Choose who the file is intended to: "));
+			DefaultComboBoxModel model = new DefaultComboBoxModel();
 
+			if (nodes==null)return;
+
+	
 			for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) 
 			{
 				ErraNode currentNode = entry.getValue();
-				String IP=currentNode.getIPAddress();
-				if (!(IP.equals(getMyIP())))
-					System.out.println(IP);
+				if (!(currentNode.getIPAddress().equals(getMyIP())))
+				{
+					model.addElement((currentNode.getIPAddress()));
+				}
 			}
 
+			JComboBox comboBox = new JComboBox(model);
+			panel.add(comboBox);
+
+			int result = JOptionPane.showConfirmDialog(null, panel, "Receiver", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+			
 			String IPDest="";
-			boolean valid=false;
-			while (!valid)
+			
+			if (result==JOptionPane.OK_OPTION)
 			{
-				Scanner keyboard = new Scanner(System.in);
-				String input = keyboard.next();
-				if (nodes.containsKey(input) && !input.equals(getMyIP()))
-				{IPDest=input;break;}
-				else
-				{System.err.println("Hai inserito un destinatario non valido, riprova.");}
+				IPDest=(String)comboBox.getSelectedItem();
+				System.out.println("You've choosen to send the file to "+IPDest);
 			}
+			else return;
+
 			LinkedList<byte[]> pcks=wrap(path,IPDest);
 			
 			if (pcks==null || pcks.size()==0)
 			{
-				System.err.println("Impossibile acquisire il file specificato.");
 				return;
 			}
 
@@ -1081,6 +1048,8 @@ public class NewErraClient
 				String nextIP=InetAddress.getByAddress(next).getHostAddress();
 				Socket TCPClientSocket=null;
 				boolean sendOK=false;
+				
+				System.out.print("Start sending packet "+(i)+"/"+pcks.size()+" to "+nextIP+"...");
 				try
 				{	
 					TCPClientSocket = new Socket();
@@ -1089,24 +1058,51 @@ public class NewErraClient
 					DataOutputStream dos = new DataOutputStream(out);
 					dos.write(packet, 0, packet.length);
 					TCPClientSocket.close(); 
-					System.out.println("The packet "+(i)+"/"+pcks.size()+" has been sent to "+nextIP);	i++;
+					System.out.println("finished.");i++;
 					sendOK=true;
 				}
 				catch (IOException e)
 				{	
-					System.err.print("Packet "+i+" has not been sent to "+nextIP);	
+					System.err.print("Packet "+i+" has not been sent to the next hop ["+nextIP+"]");	
 				}
 				
 				if (!(sendOK))
 				{
-					System.err.println("...sending the packet to the final host.");	
+					System.out.println("...sending the packet to the final host.");	
 					try
 					{	
+						//Devo prima di tutto ricreare un pacchetto tutto nuovo artificiale
+						byte[] routingL=new byte[4];
+						System.arraycopy(packet, 0, routingL, 0, 4);
+
+						byte[] headerL=new byte[4];
+						System.arraycopy(packet, 4, headerL, 0, 4);
+
+						int rL = ByteBuffer.wrap(routingL).getInt();		//Questo mi esprime il numero di indirizzi IP contenuti nel routing		
+						int hL = ByteBuffer.wrap(headerL).getInt();
+
+						byte[] directPacket=new byte[packet.length-(rL-1)*4];
+						
+						byte[] headlengthByte= new byte[4];
+						headlengthByte=ByteBuffer.allocate(4).putInt(hL).array();
+
+						byte[] routingLengthByte= new byte[4];
+						routingLengthByte=ByteBuffer.allocate(4).putInt(1).array();
+						
+						byte[] bytesIP = InetAddress.getByName(IPDest).getAddress();
+						
+						
+						System.arraycopy(routingLengthByte, 0, directPacket, 0, 4);
+						System.arraycopy(headlengthByte, 0, directPacket,4, 4);
+						System.arraycopy(bytesIP, 0, directPacket,8, 4);
+						System.arraycopy(packet, 4*(2+rL), directPacket,12, hL);
+						System.arraycopy(packet, 4*(2+rL)+hL, directPacket,12+hL, packet.length-(4*(2+rL)+hL));
+						
 						TCPClientSocket = new Socket();
 						TCPClientSocket.connect(new InetSocketAddress(IPDest,TCP_PORT_FORWARDING),CONNECTION_TIMEOUT);
 						OutputStream out = TCPClientSocket.getOutputStream(); 
 						DataOutputStream dos = new DataOutputStream(out);
-						dos.write(packet, 0, packet.length);
+						dos.write(directPacket, 0, directPacket.length);
 						TCPClientSocket.close(); 
 						System.out.println("The packet "+(i)+"/"+pcks.size()+" has successfully been sent to "+IPDest);	i++;
 						sendOK=true;
@@ -1121,8 +1117,6 @@ public class NewErraClient
 			return;
 		}
 	}
-
-
 
 	public static class trashedOut extends Thread
 	{
@@ -1148,11 +1142,11 @@ public class NewErraClient
 					String message="";
 					message=streamFromServer.readLine();
 					s.close();
-					if (message.equals("TO"))
+					if (message.equals("TO") && !(TO))
 					{
 						//I've been thrashed out from the system!!!
-						System.err.println("This host has been thrashed out from the system, file sending is not allowed. All packets coming from this host will be dropped. Restart the program to join the network again.");
-
+						System.err.println("This host, for some reasons, has been thrashed out from the system, file sending is not allowed. All packets coming from this host will be dropped. Restart the program to join the network again.");
+						TO=true;
 					}
 				}
 			}
@@ -1169,7 +1163,45 @@ public class NewErraClient
 
 	}
 
+	public static class confirmReception extends Thread
+	{
+		private ServerSocket serverSocket; 
+		private Socket s;
 
+		public void run()
+		{
+			try
+			{
+				serverSocket = new ServerSocket(TCP_FILERECEIVED);
+				while(true)
+				{
+					try
+					{	
+						s=serverSocket.accept();							//Quanto ho una richiesta di connessione la accetto!
+					}
+					catch (SocketException e)
+					{	System.out.println("ACK listen server has been closed!");
+					return;
+					}
+					BufferedReader streamFromServer = new BufferedReader(new InputStreamReader(s.getInputStream()));
+					String message="";
+					message=streamFromServer.readLine();
+					s.close();
+					System.out.println(message);
+				}
+			}
+			catch (IOException e)
+			{
+				System.out.println("ACK listen server has been closed!");
+			}
+		}	
+
+		public void releasePort() throws IOException
+		{
+			serverSocket.close();
+		}
+
+	}
 
 	public static void main(String[] args) throws InterruptedException, IOException
 	{	
@@ -1184,7 +1216,7 @@ public class NewErraClient
 			}
 			else
 			{
-				System.err.println("Ho ricevuto come parametro un indirizzo IP non valido");
+				System.err.println("The specified IP ("+args[0]+") is not valid.");
 			}
 		}
 		else
@@ -1194,7 +1226,7 @@ public class NewErraClient
 
 		if (!esito)
 		{
-			System.err.println("Connessione fallita con tutti i nodi bootstrap...l'applicazione verrà chiusa.");
+			System.err.println("The connection with all the available bootstrap has been refused, the program will be closed.");
 			System.exit(0);
 			return;
 		}
@@ -1209,6 +1241,9 @@ public class NewErraClient
 
 		trashedOut T=new trashedOut();
 		T.start();
+		
+		confirmReception C=new confirmReception();
+		C.start();
 
 		FM=new fileManager();
 
@@ -1222,15 +1257,16 @@ public class NewErraClient
 			String input = keyboard.nextLine();
 			if (input.equals("E"))
 			{
-				System.out.println("Segnalo al bootstrap che me ne sto andando...");
+				System.out.print("I'm leaving...");
 				try
 				{
 					sayGoodbye();
-					imAlive.releasePort();	//Chiudo la porta sulla quale stavo ascoltando 
-					refresh.releasePort();	//Chiudo la porta sulla quale stavo ascoltando
-					F.releasePort();		//Chiudo la porta sulla quale stavo ascoltando
+					imAlive.releasePort();	
+					refresh.releasePort();	
+					F.releasePort();
 					T.releasePort();
-					System.out.println("Chiusura di tutti i thread completata");
+					C.releasePort();
+					System.out.println("done.");
 					keyboard.close();
 					System.exit(0);
 					return;
@@ -1240,7 +1276,10 @@ public class NewErraClient
 			}
 			if (input.equals("S"))
 			{
-				send();
+				if (!(TO))
+					send();
+				else
+				{System.err.println("This host is not allowed to send files because it has been thrashed out! Restart the program to join the net again.");}
 			}
 		}
 	} 

@@ -31,6 +31,7 @@ import javax.swing.JFrame;
 
 import com.prince.ErraNode.NodeState;
 import com.prince.ErraNode.NodeType;
+import com.prince.NewErraClient.confirmReception;
 
 public class PrinceNode extends NewErraClient {
 
@@ -124,6 +125,10 @@ public class PrinceNode extends NewErraClient {
 		f.start();
 		refreshTopology refresh = new refreshTopology();
 		refresh.start();
+		confirmReception C=new confirmReception();
+		C.start();
+		
+		
 		////////////////////////	
 
 		PrinceNode princeNode = new PrinceNode();
