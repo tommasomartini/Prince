@@ -14,8 +14,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -31,7 +29,6 @@ import javax.swing.JFrame;
 
 import com.prince.ErraNode.NodeState;
 import com.prince.ErraNode.NodeType;
-import com.prince.NewErraClient.confirmReception;
 
 public class PrinceNode extends NewErraClient {
 
@@ -127,8 +124,6 @@ public class PrinceNode extends NewErraClient {
 		refresh.start();
 		confirmReception C=new confirmReception();
 		C.start();
-		
-		
 		////////////////////////	
 
 		PrinceNode princeNode = new PrinceNode();
@@ -140,7 +135,6 @@ public class PrinceNode extends NewErraClient {
 	}	// main()
 
 	private void runPrinceNode() {
-		
 		System.out.println("=====\n#Prince " + me.getIPAddress() + " activated.");
 		nodeViewer.showNetwork(nodes, me);
 		joinedNodeListenerThread.start();
@@ -270,7 +264,7 @@ public class PrinceNode extends NewErraClient {
 		public ForeignAmbassadorListenerThread() {
 			super();
 			try {
-				foreignAmbassadorReceiverSocket = new DatagramSocket();
+				foreignAmbassadorReceiverSocket = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_FOREIGN_AMBASSADOR_LISTENER);
 			} catch (SocketException e) {
 				e.printStackTrace();
 			}
@@ -291,11 +285,11 @@ public class PrinceNode extends NewErraClient {
 				while (true) {
 					receivedPacket = new DatagramPacket(receivedBuffer, receivedBuffer.length);
 					foreignAmbassadorReceiverSocket.receive(receivedPacket);
-					System.out.println("Ricevuto ambasciatore straniero!");	//TODO remove me
 					foreignAmbassadorMsg = new String(receivedPacket.getData(), 0, receivedPacket.getLength());
 					String[] info = foreignAmbassadorMsg.split(ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR);
 					if (info[0].equalsIgnoreCase(ErraNodeVariables.MSG_PRINCE_HANDSHAKE)) {
 						foreignAmbassadorID = Integer.parseInt(info[1]);
+						System.out.println("Foreign ambassador with ID: " + foreignAmbassadorID + ".");	//TODO remove me
 						byte[] sendingBuffer = (answerMsg + foreignAmbassadorID).getBytes();
 						sendingPacket = new DatagramPacket(sendingBuffer, sendingBuffer.length, receivedPacket.getAddress(), ErraNodeVariables.PORT_PRINCE_MY_AMBASSADOR_LISTENER);
 						sendingSocket.send(sendingPacket);
@@ -312,7 +306,7 @@ public class PrinceNode extends NewErraClient {
 		public MyAmbassadorListenerThread() {
 			super();
 			try {
-				myAmbassadorReceiverSocket = new DatagramSocket();
+				myAmbassadorReceiverSocket = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_MY_AMBASSADOR_LISTENER);
 			} catch (SocketException e) {
 				e.printStackTrace();
 			}
@@ -334,8 +328,11 @@ public class PrinceNode extends NewErraClient {
 					String[] info = ambassadorReport.split(ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR);
 					if (info[0].equalsIgnoreCase(ErraNodeVariables.MSG_PRINCE_ANSWER_HANDSHAKE)) {
 						ambassadorID = Integer.parseInt(info[1]);
-						long tripDuration = System.currentTimeMillis() - ambassadorDepartureTimes.get(ambassadorID);
-						ambassadorTripDuration.put(ambassadorID, tripDuration);
+						if (ambassadorDepartureTimes.containsKey(ambassadorID)) {
+							long tripDuration = System.nanoTime() - ambassadorDepartureTimes.get(ambassadorID);
+							ambassadorTripDuration.put(ambassadorID, tripDuration);
+							System.out.println("Ambassador " + ambassadorID + " back home. Time " + tripDuration);
+						}
 					}
 				}
 			} catch (IOException e) {
@@ -580,19 +577,6 @@ public class PrinceNode extends NewErraClient {
 						int currentHandshakeID = new Random().nextInt(1000);
 						Collection<ErraNode> princeCollection = princes.values();
 						Iterator<ErraNode> princesIterator = princeCollection.iterator();
-						//					while (handshake) {
-						//						msg += currentHandshakeID++;
-						//						byte[] buf = msg.getBytes();
-						//						currentPrinceAddress = InetAddress.getByName(((ErraNode)princesIterator.next()).getIPAddress());
-						//						handshakePacket = new DatagramPacket(buf, buf.length, currentPrinceAddress, ErraNodeVariables.PORT_PRINCE_FOREIGN_AMBASSADOR_LISTENER);
-						//						ambassadorDepartureTimes.put(currentHandshakeID, System.nanoTime());
-						//						datagramSocket.send(handshakePacket);
-						//						System.out.println("Send!!");	//TODO remove me
-						//						if (!princesIterator.hasNext()) {
-						//							princesIterator = princeCollection.iterator();
-						//							sleep(1000);
-						//						}
-						//					}
 						System.out.println("I am sending my ambassadors around.");
 						while (princesIterator.hasNext()) {
 							msg += currentHandshakeID++;
@@ -601,9 +585,7 @@ public class PrinceNode extends NewErraClient {
 							handshakePacket = new DatagramPacket(buf, buf.length, currentPrinceAddress, ErraNodeVariables.PORT_PRINCE_FOREIGN_AMBASSADOR_LISTENER);
 							ambassadorDepartureTimes.put(currentHandshakeID, System.nanoTime());
 							datagramSocket.send(handshakePacket);
-							//						System.out.println("...");	//TODO remove me
 						}
-						//					System.out.println("Aspetto due secondi i miei ambasciatori..");	//TODO remove me
 						sleep(1000 * 2);	// wait some seconds...
 						if (ambassadorTripDuration.isEmpty()) {
 							System.out.println("No ambassador answered: the procedure will be repeated.");
@@ -611,13 +593,17 @@ public class PrinceNode extends NewErraClient {
 							long sumTripTime = 0;
 							for (Map.Entry<Integer, Long> entry : ambassadorTripDuration.entrySet()) {
 								sumTripTime += entry.getValue();
+								System.out.println("Summing time of ambassador: " + entry.getKey() + ".");
 							}
 							periodAskForALiveAgain = (sumTripTime / ambassadorTripDuration.size()) * 2;	// twice the mean value
 							periodAskForAlive = 2^(TIMES_TO_ASK_AGAIN) * periodAskForALiveAgain * 2;	// in totale chiedo 2^(TIMES_TO_ASK_AGAIN) - 1 volte. Raddoppio questo tempo.
 							System.out.println("Period ask for alive again set to: " + periodAskForALiveAgain + " milliseconds.");
 							System.out.println("Period ask for alive set to: " + periodAskForAlive + " milliseconds.");
+							datagramSocket.close();
+							System.out.println("Exit from initializing...");
 							break;
 						}
+						datagramSocket.close();
 					} catch (SocketException e) {
 						e.printStackTrace();
 					} catch (UnknownHostException e) {
