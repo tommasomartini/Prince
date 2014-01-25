@@ -35,7 +35,7 @@ public class PrinceNode extends NewErraClient {
 	private boolean ACTIVE_ALIVE_RQST = true;
 
 	//	Times and periods in milliseconds
-	private static final long DELAY_ASK_FOR_ALIVE = 1000 * 3;	
+	private static final long DELAY_ASK_FOR_ALIVE = 1000 * 60;	// time before first alive request
 //	private static final long PERIOD_ASK_FOR_ALIVE = 1000 * 60;
 	private static final int TIMES_TO_ASK_AGAIN = 3;
 	private static final long DELAY_WAIT_FOR_CALLING_TO_FINISH = 1000 * 1;	// if I have to update the tables and the Bootstrap is not on "running" mode I'll wait for this time before attempting again to access tables
@@ -127,7 +127,7 @@ public class PrinceNode extends NewErraClient {
 		////////////////////////	
 
 		PrinceNode princeNode = new PrinceNode();
-		princeNode.initializePrinceNode();
+//		princeNode.initializePrinceNode();
 		while (currentState != PrinceState.STATE_RUNNING) {
 
 		}
@@ -285,6 +285,7 @@ public class PrinceNode extends NewErraClient {
 				while (true) {
 					receivedPacket = new DatagramPacket(receivedBuffer, receivedBuffer.length);
 					foreignAmbassadorReceiverSocket.receive(receivedPacket);
+					System.out.println("Ip: " + receivedPacket.getAddress().getHostAddress());
 					foreignAmbassadorMsg = new String(receivedPacket.getData(), 0, receivedPacket.getLength());
 					String[] info = foreignAmbassadorMsg.split(ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR);
 					if (info[0].equalsIgnoreCase(ErraNodeVariables.MSG_PRINCE_HANDSHAKE)) {
@@ -328,6 +329,7 @@ public class PrinceNode extends NewErraClient {
 					String[] info = ambassadorReport.split(ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR);
 					if (info[0].equalsIgnoreCase(ErraNodeVariables.MSG_PRINCE_ANSWER_HANDSHAKE)) {
 						ambassadorID = Integer.parseInt(info[1]);
+						System.out.println("Ricevuto " + ambassadorID);
 						if (ambassadorDepartureTimes.containsKey(ambassadorID)) {
 							long tripDuration = System.nanoTime() - ambassadorDepartureTimes.get(ambassadorID);
 							ambassadorTripDuration.put(ambassadorID, tripDuration);
@@ -360,9 +362,8 @@ public class PrinceNode extends NewErraClient {
 				DatagramSocket datagramSocket = new DatagramSocket();
 				DatagramPacket datagramPacket;
 				byte[] msg = (new String(ErraNodeVariables.MSG_PRINCE_ALIVE_REQUEST)).getBytes();
-				for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
-					ErraNode currentNode = entry.getValue();
-					datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(currentNode.getIPAddress()), ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
+				for(Map.Entry<String, ErraNode.NodeState> entry : rollCallRegister.entrySet()) {
+					datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(entry.getKey()), ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
 					datagramSocket.send(datagramPacket);
 				}
 				int rollCallingCounter = TIMES_TO_ASK_AGAIN;
