@@ -270,7 +270,7 @@ public class PrinceNode extends NewErraClient {
 		public ForeignAmbassadorListenerThread() {
 			super();
 			try {
-				foreignAmbassadorReceiverSocket = new DatagramSocket();
+				foreignAmbassadorReceiverSocket = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_FOREIGN_AMBASSADOR_LISTENER);
 			} catch (SocketException e) {
 				e.printStackTrace();
 			}
@@ -312,7 +312,7 @@ public class PrinceNode extends NewErraClient {
 		public MyAmbassadorListenerThread() {
 			super();
 			try {
-				myAmbassadorReceiverSocket = new DatagramSocket();
+				myAmbassadorReceiverSocket = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_MY_AMBASSADOR_LISTENER);
 			} catch (SocketException e) {
 				e.printStackTrace();
 			}

@@ -1230,7 +1230,7 @@ public class NewErraClient
 			System.exit(0);
 			return;
 		}
-
+		
 		showTopology();
 
 		answerAliveRequest imAlive=new answerAliveRequest();
