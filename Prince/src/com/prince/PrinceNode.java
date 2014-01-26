@@ -36,14 +36,11 @@ public class PrinceNode extends NewErraClient {
 	private boolean ACTIVE_ALIVE_RQST = true;
 
 	//	Times and periods in milliseconds
-	private static final long DELAY_ASK_FOR_ALIVE = 1000 * 60;	// time before first alive request
-//	private static final long PERIOD_ASK_FOR_ALIVE = 1000 * 60;
-	private static final int TIMES_TO_ASK_AGAIN = 3;
-	private static final long DELAY_WAIT_FOR_CALLING_TO_FINISH = 1000 * 1;	// if I have to update the tables and the Bootstrap is not on "running" mode I'll wait for this time before attempting again to access tables
+	
+	
 	//	private static final long INITIALIZATION_PERIOD = 1000 * 5; // initialization duration
 
-	private static long periodAskForALiveAgain = 1000 * 2;	// default: 2 seconds
-	private static long periodAskForAlive = 1000 * 60;	// default: 60 seconds
+
 	
 	//	States
 	private enum PrinceState {
@@ -116,6 +113,8 @@ public class PrinceNode extends NewErraClient {
 
 		/////////////////////////
 		//	ErraClient functions
+		ErraNodeVariables.parseConfigFile();
+		
 		answerAliveRequest A=new answerAliveRequest();
 		A.start();
 		
@@ -146,7 +145,7 @@ public class PrinceNode extends NewErraClient {
 		aliveNodeListenerThread.start();
 		TimerTask task = new AliveAskerTask();
 		if (ACTIVE_ALIVE_RQST) {
-			timer.schedule(task, DELAY_ASK_FOR_ALIVE, periodAskForAlive);
+			timer.schedule(task, ErraNodeVariables.DELAY_ASK_FOR_ALIVE, ErraNodeVariables.periodAskForAlive);
 		}
 	}
 
@@ -370,13 +369,13 @@ public class PrinceNode extends NewErraClient {
 					datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(entry.getKey()), ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
 					datagramSocket.send(datagramPacket);
 				}
-				int rollCallingCounter = TIMES_TO_ASK_AGAIN;
+				int rollCallingCounter = ErraNodeVariables.TIMES_TO_ASK_AGAIN;
 				boolean stillMissingNodes = true;
 				List<String> missingNodes = new LinkedList<String>();
 				while (rollCallingCounter >= 0 && stillMissingNodes) {
 					System.out.println("Waiting for alive answers...");
 					showNetworkTable();
-					Thread.sleep((TIMES_TO_ASK_AGAIN - rollCallingCounter + 1) * periodAskForALiveAgain);	// TODO controllare qui!
+					Thread.sleep((ErraNodeVariables.TIMES_TO_ASK_AGAIN - rollCallingCounter + 1) * ErraNodeVariables.periodAskForALiveAgain);	// TODO controllare qui!
 					for (Map.Entry<String, NodeState> registerEntry : rollCallRegister.entrySet()) {
 						if (registerEntry.getValue() == NodeState.NODE_STATE_MISSING && !missingNodes.contains(registerEntry.getKey())) {
 							missingNodes.add(registerEntry.getKey());
@@ -389,8 +388,8 @@ public class PrinceNode extends NewErraClient {
 						stillMissingNodes = false;
 						System.out.println("No missing nodes."); // TODO remove me!!!
 					} else if (rollCallingCounter > 0) {	// send again
-						int numRqst = TIMES_TO_ASK_AGAIN - rollCallingCounter + 1;
-						System.out.println("Missing nodes! Send request bis number: " + numRqst + "/" + TIMES_TO_ASK_AGAIN + " to the following nodes:"); // TODO remove me!!!
+						int numRqst = ErraNodeVariables.TIMES_TO_ASK_AGAIN - rollCallingCounter + 1;
+						System.out.println("Missing nodes! Send request bis number: " + numRqst + "/" + ErraNodeVariables.TIMES_TO_ASK_AGAIN + " to the following nodes:"); // TODO remove me!!!
 						for (Iterator<String> iterator = missingNodes.iterator(); iterator.hasNext();) {
 							String missingNodeIPAddress = (String)iterator.next();
 							System.out.println("- " + missingNodeIPAddress);
@@ -463,7 +462,7 @@ public class PrinceNode extends NewErraClient {
 					node.setBootstrapOwner(me);
 					while (currentState != PrinceState.STATE_RUNNING) {
 						try {
-							sleep(DELAY_WAIT_FOR_CALLING_TO_FINISH);
+							sleep(ErraNodeVariables.DELAY_WAIT_FOR_CALLING_TO_FINISH);
 						} catch (InterruptedException e) {
 							e.printStackTrace();
 						}
@@ -511,7 +510,7 @@ public class PrinceNode extends NewErraClient {
 				String ipAddress = segments[1];
 				while (currentState != PrinceState.STATE_RUNNING) {
 					try {
-						sleep(DELAY_WAIT_FOR_CALLING_TO_FINISH);
+						sleep(ErraNodeVariables.DELAY_WAIT_FOR_CALLING_TO_FINISH);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
@@ -600,10 +599,10 @@ public class PrinceNode extends NewErraClient {
 								sumTripTime += entry.getValue();
 								System.out.println("Summing time of ambassador: " + entry.getKey() + ".");
 							}
-							periodAskForALiveAgain = (sumTripTime / ambassadorTripDuration.size()) * 2;	// twice the mean value
-							periodAskForAlive = 2^(TIMES_TO_ASK_AGAIN) * periodAskForALiveAgain * 2;	// in totale chiedo 2^(TIMES_TO_ASK_AGAIN) - 1 volte. Raddoppio questo tempo.
-							System.out.println("Period ask for alive again set to: " + periodAskForALiveAgain + " milliseconds.");
-							System.out.println("Period ask for alive set to: " + periodAskForAlive + " milliseconds.");
+							ErraNodeVariables.periodAskForALiveAgain = (sumTripTime / ambassadorTripDuration.size()) * 2;	// twice the mean value
+							ErraNodeVariables.periodAskForAlive = 2^(ErraNodeVariables.TIMES_TO_ASK_AGAIN) * ErraNodeVariables.periodAskForALiveAgain * 2;	// in totale chiedo 2^(TIMES_TO_ASK_AGAIN) - 1 volte. Raddoppio questo tempo.
+							System.out.println("Period ask for alive again set to: " + ErraNodeVariables.periodAskForALiveAgain + " milliseconds.");
+							System.out.println("Period ask for alive set to: " + ErraNodeVariables.periodAskForAlive + " milliseconds.");
 							datagramSocket.close();
 							System.out.println("Exit from initializing...");
 							break;

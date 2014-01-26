@@ -106,8 +106,11 @@ public class NewErraClient
 
 						long diff = now.getTime()-d1.getTime();
 						float TX=(float)(diff/1000);
-
-						System.out.println("File "+fileName+", coming from "+sender+", has been correctly written. Transmission time: "+TX+" seconds.");	
+						
+						String S="File "+fileName+", coming from "+sender+", has been correctly written. Transmission time: "+TX+" seconds.";
+						
+						JOptionPane.showMessageDialog(null, S, "File received", JOptionPane.INFORMATION_MESSAGE);
+						System.out.println(S);	
 						output.close();
 
 						Socket ACKSocket = new Socket();
@@ -1231,6 +1234,7 @@ public class NewErraClient
 
 	public static void main(String[] args) throws InterruptedException, IOException
 	{	
+		ErraNodeVariables.parseConfigFile();
 		
 		boolean esito=false;
 
@@ -1307,6 +1311,10 @@ public class NewErraClient
 					send();
 				else
 				{System.err.println("This host is not allowed to send files because it has been thrashed out! Restart the program and join the ERRA network again.");}
+			}
+			if (input.equals("?"))
+			{
+				showTopology();
 			}
 		}
 	} 
