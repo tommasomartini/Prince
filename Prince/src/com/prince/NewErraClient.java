@@ -463,6 +463,26 @@ public class NewErraClient
 		return ipAddress;
 	}
 
+	public static long factorial(int n)
+	{
+		long ris=1;
+		if (n==0 || n==1)
+			return ris;
+		
+		if(n<=10)
+		{
+			while (n>1)
+				ris=ris*(n--);
+			return ris;
+		}
+		
+		//Uso la formula di stirling
+		double e=Math.E;
+		double pi=Math.PI;
+		double approx=Math.sqrt(2*pi*n)*Math.pow((n/e),n);
+		return (long)(approx);
+	}
+	
 	public static double measureRTT(String IP) throws IOException
 	{
 		if(!(validate(IP)))return 0;
@@ -846,6 +866,20 @@ public class NewErraClient
 
 		while((int)file.length()/packets>ErraNodeVariables.MAX_PAYLOAD)
 			packets++;	
+		
+		boolean valid=false;
+		
+		while(!(valid))
+		{
+			String p= JOptionPane.showInputDialog("Number of packet to split the file in: ",packets);
+			int N=Integer.parseInt(p);
+			if (N>0)
+			{
+				valid=true;
+				packets=N;
+			}
+		}
+		
 
 		int packets_length=(int)file.length()/packets;
 		int residual_pck=0;
@@ -1197,6 +1231,7 @@ public class NewErraClient
 
 	public static void main(String[] args) throws InterruptedException, IOException
 	{	
+		
 		boolean esito=false;
 
 		if(args.length!=0)

@@ -118,6 +118,7 @@ public class PrinceNode extends NewErraClient {
 		//	ErraClient functions
 		answerAliveRequest A=new answerAliveRequest();
 		A.start();
+		
 		FM = new fileManager();
 		listenToForward f = new listenToForward();
 		f.start();
