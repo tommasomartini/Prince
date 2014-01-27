@@ -7,6 +7,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.io.UnsupportedEncodingException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -21,6 +22,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Scanner;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -109,7 +111,7 @@ public class PrinceNode extends NewErraClient {
 		foreignAmbassadorListenerThread = new ForeignAmbassadorListenerThread();
 	}	// PrinceNode()
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws UnsupportedEncodingException, UnknownHostException {
 
 		/////////////////////////
 		//	ErraClient functions
@@ -131,10 +133,22 @@ public class PrinceNode extends NewErraClient {
 
 		PrinceNode princeNode = new PrinceNode();
 //		princeNode.initializePrinceNode();
-		while (currentState != PrinceState.STATE_RUNNING) {
-
+		while (currentState != PrinceState.STATE_RUNNING)
+		{
 		}
 		princeNode.runPrinceNode();
+		
+		Scanner keyboard = new Scanner(System.in);
+		
+		while(true)
+		{	
+			String input = keyboard.nextLine();
+			if (input.toUpperCase().equals("S"))
+			{
+				send();
+			}
+		}
+		
 	}	// main()
 
 	private void runPrinceNode() {

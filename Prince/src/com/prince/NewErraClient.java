@@ -111,7 +111,7 @@ public class NewErraClient
 						
 						String S="File "+fileName+", coming from "+sender+", has been correctly written. Transmission time: "+TX+" seconds.";
 						
-						JOptionPane.showMessageDialog(null, S, "File received", JOptionPane.INFORMATION_MESSAGE);
+						
 						System.out.println(S);	
 						output.close();
 
@@ -208,6 +208,9 @@ public class NewErraClient
 			if (esito)
 			{
 				fileList.remove(t);			//The add operation has completed the file, remove it!
+				String S="Received file "+t.fileName+" from "+t.sender;
+				JOptionPane.showMessageDialog(null, S, "File received", JOptionPane.INFORMATION_MESSAGE);
+			
 			}
 		}
 
@@ -232,7 +235,7 @@ public class NewErraClient
 				System.out.print(t.fileName+'\t');
 				System.out.print(t.addDate.toLocaleString()+'\t'+'\t');
 
-				double expectedTXTime=((ErraNodeVariables.MAX_PAYLOAD*8*t.packets)/(10e8))*10000*nodes.size();
+				double expectedTXTime=((t.size*8*t.packets)/(10e8))*1000*nodes.size();
 				long TX=(long)(expectedTXTime);
 
 				Date expire=new Date(t.addDate.getTime()+TX);
@@ -1001,7 +1004,7 @@ public class NewErraClient
 
 	public static void send() throws UnsupportedEncodingException, UnknownHostException 
 	{
-		if (nodes==null || nodes.size()<=1)
+		if (nodes==null || nodes.size()==0)
 		{
 			System.out.println("You are alone in the network, file sending is not allowed.");
 			return;
@@ -1256,8 +1259,9 @@ public class NewErraClient
 		}
 		else
 		{
-			String p= JOptionPane.showInputDialog("Choose the IP of the bootstrap to connect with \nLeave this field blank for choosing a file");
-			if (!(p.equals(""))&&validate(p))
+			String p="";
+			p= JOptionPane.showInputDialog("Choose the IP of the bootstrap to connect with \nLeave this field blank for choosing a file");
+			if (!(p==null)&&validate(p))
 			{
 				esito=initializeErra(p);
 			}
