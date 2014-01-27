@@ -62,14 +62,16 @@ public class NewErraClient
 		public int packets;
 		public String sender;
 		public Date addDate;
+		public int size;
 		private List<filePart> parts = new ArrayList<filePart>();
 
-		public file(String name,int n,String S)
+		public file(String name,int n,String S,int dim)
 		{
 			fileName=name;
 			packets=n;
 			sender=S;
 			addDate=Calendar.getInstance().getTime();
+			size=dim;
 		}
 
 		public boolean add(int SN,byte[] data)
@@ -170,13 +172,16 @@ public class NewErraClient
 			header=header.substring(header.indexOf("@")+1);
 
 			String sender=header.substring(0,header.indexOf("@"));
-
+			header=header.substring(header.indexOf("@")+1);
+			
+			int size=Integer.parseInt(header.substring(0,header.indexOf("@")));
+			
 			boolean esito=false;
 			file t=null;
 
 			if (fileList==null)
 			{
-				t=new file(filename,parts,sender);
+				t=new file(filename,parts,sender,size);
 				esito=t.add(SN,packet);
 				fileList= new ArrayList<file>();
 				fileList.add(t);
@@ -195,7 +200,7 @@ public class NewErraClient
 				}
 				if(!pending)
 				{
-					t=new file(filename,parts,sender);
+					t=new file(filename,parts,sender,size);
 					t.add(SN,packet);
 					esito=fileList.add(t);
 				}
@@ -957,7 +962,7 @@ public class NewErraClient
 			}
 
 			String header="";
-			header=Integer.toString(SN+i)+"@"+packets+"@"+name+"@"+getMyIP()+"@";
+			header=Integer.toString(SN+i)+"@"+packets+"@"+name+"@"+getMyIP()+"@"+((int)file.length())+"@";
 
 			byte[] headerB=header.getBytes();
 
@@ -1251,12 +1256,21 @@ public class NewErraClient
 		}
 		else
 		{
-			esito=openBootstrapFile();
+			String p= JOptionPane.showInputDialog("Choose the IP of the bootstrap to connect with \nLeave this field blank for choosing a file");
+			if (!(p.equals(""))&&validate(p))
+			{
+				esito=initializeErra(p);
+			}
+			else
+			{
+				esito=openBootstrapFile();
+			}
+			
 		}
 
 		if (!esito)
 		{
-			System.err.println("The connection with all the available bootstrap has been refused, the program will be closed.");
+			System.err.println("The connection with all the available bootstraps has been refused, the program will be closed.");
 			System.exit(0);
 			return;
 		}

@@ -654,32 +654,37 @@ public class PrinceNode extends NewErraClient {
 		fileChooser.setCurrentDirectory(new File("~"));
 		int fileChooserOption = fileChooser.showOpenDialog(new JFrame());
 		if (fileChooserOption != JFileChooser.APPROVE_OPTION) {
-			System.out.println("You must choose a file! This Prince Node will be shut down... Goodbye!");
-			System.exit(0);
+			System.out.println("You haven't selected any file, so I suppose you are the only prince!");
+			//System.exit(0);
 		}
-		String path = fileChooser.getSelectedFile().getPath();
-		File princeAddressesFile = new File(path);
-		BufferedReader reader = null;
-		try {
-			reader = new BufferedReader(new FileReader(princeAddressesFile));
-			String ipAddress = null;
-			while ((ipAddress = reader.readLine()) != null) {
-				if (validate(ipAddress) && !ipAddress.equalsIgnoreCase(me.getIPAddress())) {
-					ErraNode princeNode = new ErraNode(ipAddress, NodeType.NODE_TYPE_PRINCE, NodeState.NODE_STATE_ALIVE);
-					princeNode.setInMyCounty(false);
-					nodes.put(ipAddress, princeNode);
-					princes.put(ipAddress, princeNode);
-					rollCallRegister.put(ipAddress, NodeState.NODE_STATE_ALIVE);
+		else
+		{
+			String path = fileChooser.getSelectedFile().getPath();
+			File princeAddressesFile = new File(path);
+			BufferedReader reader = null;
+			try {
+				reader = new BufferedReader(new FileReader(princeAddressesFile));
+				String ipAddress = null;
+				while ((ipAddress = reader.readLine()) != null) 
+				{
+					if (validate(ipAddress) && !ipAddress.equalsIgnoreCase(me.getIPAddress())) {
+						ErraNode princeNode = new ErraNode(ipAddress, NodeType.NODE_TYPE_PRINCE, NodeState.NODE_STATE_ALIVE);
+						princeNode.setInMyCounty(false);
+						nodes.put(ipAddress, princeNode);
+						princes.put(ipAddress, princeNode);
+						rollCallRegister.put(ipAddress, NodeState.NODE_STATE_ALIVE);
+					}
 				}
-			}
-			if (reader != null) {
-				reader.close();
-			}
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e)	{
-			e.printStackTrace();
-		} 
+				if (reader != null) {
+					reader.close();
+				}
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+			} catch (IOException e)	{
+				e.printStackTrace();
+			} 
+		}
+		
 	}
 
 	//	TODO gestire uscita elegante del bootstrap

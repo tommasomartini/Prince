@@ -80,41 +80,48 @@ public class ErraNodeVariables {
 				String array[]=text.split("=");
 				if ((!(array[0].equals("")))&&(!(array[1].equals(""))))
 				{
-					String varName=array[0];
-					int value=Integer.parseInt(array[1]);
-					
-					if (varName.toUpperCase().equals("DELAY_ASK_FOR_ALIVE"))
-						DELAY_ASK_FOR_ALIVE=value;
-					
-					if (varName.toUpperCase().equals("TIMES_TO_ASK_AGAIN"))
-						TIMES_TO_ASK_AGAIN=value;
+					String varName="";
+					int value=0;
+					try
+					{
+						varName=array[0];
+						value=Integer.parseInt(array[1]);
 						
-					if (varName.toUpperCase().equals("DELAY_WAIT_FOR_CALLING_TO_FINISH"))
-						DELAY_WAIT_FOR_CALLING_TO_FINISH=value;
-					
-					if (varName.toUpperCase().equals("PERIODASKFORALIVEAGAIN"))
-						 periodAskForALiveAgain=value;
-					
-					if (varName.toUpperCase().equals("PERIODASKFORALIVE"))
-						 periodAskForAlive=value;
-					
-					if (varName.toUpperCase().equals("CONNECTION_TIMEOUT"))
-						CONNECTION_TIMEOUT=value;
-					
-					if (varName.toUpperCase().equals("MAX_PAYLOAD"))
-						MAX_PAYLOAD=value;
-					
-					if (varName.toUpperCase().equals("MINIMUM_PAYLOAD"))
-						MINIMUM_PAYLOAD=value;
-					
-					if (varName.toUpperCase().equals("PENDING_REFRESH_RATE"))
-						PENDING_REFRESH_RATE=value;
-					
-					if (varName.toUpperCase().equals("BETA"))
-						beta=value;
+						if (varName.toUpperCase().equals("DELAY_ASK_FOR_ALIVE"))
+							{DELAY_ASK_FOR_ALIVE=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+						
+						if (varName.toUpperCase().equals("TIMES_TO_ASK_AGAIN"))
+							{TIMES_TO_ASK_AGAIN=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+							
+						if (varName.toUpperCase().equals("DELAY_WAIT_FOR_CALLING_TO_FINISH"))
+							{DELAY_WAIT_FOR_CALLING_TO_FINISH=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+						
+						if (varName.toUpperCase().equals("PERIODASKFORALIVEAGAIN"))
+							 {periodAskForALiveAgain=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+						
+						if (varName.toUpperCase().equals("PERIODASKFORALIVE"))
+							 {periodAskForAlive=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+						
+						if (varName.toUpperCase().equals("CONNECTION_TIMEOUT"))
+							{CONNECTION_TIMEOUT=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+						
+						if (varName.toUpperCase().equals("MAX_PAYLOAD"))
+							{MAX_PAYLOAD=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+						
+						if (varName.toUpperCase().equals("MINIMUM_PAYLOAD"))
+							{MINIMUM_PAYLOAD=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+						
+						if (varName.toUpperCase().equals("PENDING_REFRESH_RATE"))
+							{PENDING_REFRESH_RATE=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+						
+						if (varName.toUpperCase().equals("BETA"))
+							{beta=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+					}
+					catch (java.lang.NumberFormatException a)
+					{
+						
+					}
 				}
-
-				System.out.println(array[0]);
 			}
 		} 
 		catch (FileNotFoundException e){} 
