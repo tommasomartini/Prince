@@ -1,5 +1,10 @@
 package com.prince;
 
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Container;
+import java.awt.Dimension;
+import java.awt.event.ActionListener;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
@@ -10,10 +15,12 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.ConnectException;
 import java.net.DatagramPacket;
@@ -28,6 +35,9 @@ import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.security.acl.LastOwnerException;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -43,19 +53,28 @@ import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.DefaultComboBoxModel;
+import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JLayeredPane;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
 
 public class NewErraClient 
 {
 	public static boolean TO=false;
 	public static String BOOTSTRAP_ADDRESS="";
 	public static fileManager FM;
-
+	
+	public static List<String> received;
+	
+	public static GUI graphicInterface;
+	
+	
 	public static class file
 	{	
 		public String fileName;
@@ -63,8 +82,36 @@ public class NewErraClient
 		public String sender;
 		public Date addDate;
 		public int size;
+		public long lastPacketReceived;
+		
+		public double RTTM;
+		public double RTTS;
+		public double RTTD;
+		
 		private List<filePart> parts = new ArrayList<filePart>();
 
+		private int getMinSN()
+		{
+			int min=0;
+			for (Iterator<filePart> i = parts.iterator(); i.hasNext();)
+			{
+				filePart f = (filePart)(i.next());
+				min=Math.min(f.SN, min);
+			}
+			return min;
+		}
+		
+		private int getMaxSN()
+		{
+			int max=0;
+			for (Iterator<filePart> i = parts.iterator(); i.hasNext();)
+			{
+				filePart f = (filePart)(i.next());
+				max=Math.max(f.SN, max);
+			}
+			return max;
+		}
+		
 		public file(String name,int n,String S,int dim)
 		{
 			fileName=name;
@@ -72,13 +119,52 @@ public class NewErraClient
 			sender=S;
 			addDate=Calendar.getInstance().getTime();
 			size=dim;
+			lastPacketReceived=0;
 		}
 
+		
 		public boolean add(int SN,byte[] data)
 		{
+			
+			int min=getMinSN();
+			int max=getMaxSN();
+			
+			if(min!=0)
+				if (SN<min-size && SN>min+size)
+					{
+						System.err.println("Received a packet out of SN");
+						return false;
+					}
+			
+			if(max!=0)
+				if (SN<max-size && SN>max+size)
+					{
+						System.err.println("Received a packet out of SN");
+						return false;
+					}
+			
 			filePart t=new filePart(SN,data);
 			parts.add(t);
 			System.out.println("Received packet "+SN+ " ["+data.length+" bytes] belonging to "+fileName);
+			
+			if (lastPacketReceived==0)
+				lastPacketReceived=System.currentTimeMillis();
+			else
+			{
+				if (RTTS==0)
+				{
+					RTTS=System.currentTimeMillis()-lastPacketReceived;
+					RTTD=RTTS/2;
+				}
+				else
+				{
+					RTTM=(System.currentTimeMillis()-lastPacketReceived);
+					RTTS=(1-ErraNodeVariables.alpha)*RTTS+ErraNodeVariables.alpha*RTTM;
+					RTTD=(1-ErraNodeVariables.beta)*RTTD+ErraNodeVariables.beta*Math.abs(RTTS-RTTM);
+					lastPacketReceived=System.currentTimeMillis();
+				}
+			}
+			
 			if (parts.size()==packets)
 			{
 				Collections.sort(parts);
@@ -92,7 +178,23 @@ public class NewErraClient
 						output = new BufferedOutputStream(new FileOutputStream(FN));
 					}
 					else
+					{
+						File testFile = new File(System.getProperty("user.dir")+"/"+fileName);
+						if(testFile.exists())
+						{	int FileNumber =0;
+							while(true)
+							{
+								Random random = new Random();
+								FileNumber= random.nextInt(2000);
+								File test = new File(System.getProperty("user.dir")+"/"+SN+fileName);
+								if(!test.exists())break;
+							}
+							output = new BufferedOutputStream(new FileOutputStream("("+SN+") "+fileName));
+						}
+						else
 						output = new BufferedOutputStream(new FileOutputStream(fileName));
+					}
+						
 					try
 					{
 						for (Iterator<filePart> i = parts.iterator(); i.hasNext();)
@@ -103,15 +205,14 @@ public class NewErraClient
 					}
 					finally
 					{	
-						Date d1 = addDate;
-						Date now=Calendar.getInstance().getTime();
-
-						long diff = now.getTime()-d1.getTime();
-						float TX=(float)(diff/1000);
+					
+						String S="File "+fileName+", coming from "+sender+", has been correctly written.";
 						
-						String S="File "+fileName+", coming from "+sender+", has been correctly written. Transmission time: "+TX+" seconds.";
+						Date dNow = new Date( );
+					    SimpleDateFormat ft =   new SimpleDateFormat ("hh:mm:ss");
 						
-						
+						received.add(ft.format(dNow).toString()+": "+ fileName+" received from "+sender);
+						graphicInterface.update();
 						System.out.println(S);	
 						output.close();
 
@@ -137,6 +238,7 @@ public class NewErraClient
 
 		private static class filePart implements Comparable<filePart>
 		{
+			
 			public int SN;
 			public byte[] data;
 			
@@ -201,8 +303,8 @@ public class NewErraClient
 				if(!pending)
 				{
 					t=new file(filename,parts,sender,size);
-					t.add(SN,packet);
-					esito=fileList.add(t);
+					esito=t.add(SN,packet);
+					fileList.add(t);
 				}
 			}
 			if (esito)
@@ -210,7 +312,8 @@ public class NewErraClient
 				fileList.remove(t);			//The add operation has completed the file, remove it!
 				String S="Received file "+t.fileName+" from "+t.sender;
 				JOptionPane.showMessageDialog(null, S, "File received", JOptionPane.INFORMATION_MESSAGE);
-			
+				if(fileList.size()==0)
+					fileList=null;
 			}
 		}
 
@@ -219,47 +322,41 @@ public class NewErraClient
 
 		public void showOldFiles()
 		{
+			
 			if(fileList==null || fileList.size()==0)
 			{return;}
-
-
-			System.out.println("========== Pending files ==========");
-			System.out.println("Filename\tFirst packet arrival date\tTime limit for arrival\t\tReceived packets");
-
+			
 			file toRemove=null;
-
+			
 			for (Iterator<file> i = fileList.iterator(); i.hasNext();)
-			{
-				file t = (file)(i.next());
+			{	
+				file t = (file)(i.next());		
 
-				System.out.print(t.fileName+'\t');
-				System.out.print(t.addDate.toLocaleString()+'\t'+'\t');
-
-				double expectedTXTime=((t.size*8*t.packets)/(10e8))*1000*nodes.size();
-				long TX=(long)(expectedTXTime);
-
-				Date expire=new Date(t.addDate.getTime()+TX);
-
-				System.out.print(expire.toLocaleString()+'\t'+'\t');
-
-				System.out.println(t.parts.size()+"/"+t.packets);
-
-				Date d1 = t.addDate;
-				Date now=Calendar.getInstance().getTime();
-
-				long diff = now.getTime()-d1.getTime() ;
-
-				if(diff>expectedTXTime*ErraNodeVariables.beta)
+				double RTTS=t.RTTS;
+				double RTTD=t.RTTD;
+				double RTO=RTTS+ErraNodeVariables.k*RTTD;
+				
+				if (RTTS==0 || RTTD==0)
+					return;
+				
+				double lastArrival=t.lastPacketReceived;
+				double now=System.currentTimeMillis();
+				
+				if((now-lastArrival)>RTO)
 				{
-					System.out.println("The first packet of file "+t.fileName+" has been received at "+t.addDate.toLocaleString());
-					System.out.println("More then "+(int)((expectedTXTime*ErraNodeVariables.beta)/1000)+" seconds has passed, and the file is still incomplete. It will now be dropped and I ask for the retransmission.");
 					toRemove=t;
 					break;
+					
+				}
+				else
+				{
+					if(ErraNodeVariables.verbose) System.out.println("File "+t.fileName+" is pending. Last packet received "+ (int)(now-lastArrival)+" mS ago. RTO is at "+(int)RTO);
 				}
 			}
-
-			if(toRemove!=null)
+			
+			if (toRemove!=null)
 			{
+				System.out.print("File "+toRemove.fileName+" has been dropped. ");
 				fileList.remove(toRemove);
 				Socket ACKSocket = new Socket();
 				try
@@ -268,11 +365,12 @@ public class NewErraClient
 					DataOutputStream streamToServer = new DataOutputStream(ACKSocket.getOutputStream());
 					streamToServer.writeBytes(getMyIP()+" has NOT RECEIVED "+toRemove.fileName + "! Please, send it again!"+'\n');	
 					ACKSocket.close();
-					System.out.println("I asked the sender for the retransmission");
+					System.out.println("I've asked the sender to transmit the file again.");
 				}
 				catch (IOException e)
 				{System.err.println("The sender is not available anymore.");}
-			}	
+			
+			}
 		}
 
 	}
@@ -474,24 +572,20 @@ public class NewErraClient
 		return ipAddress;
 	}
 
-	public static long factorial(int n)
+	public static void log(String data)
 	{
-		long ris=1;
-		if (n==0 || n==1)
-			return ris;
-		
-		if(n<=10)
+		try 
 		{
-			while (n>1)
-				ris=ris*(n--);
-			return ris;
-		}
+			FileWriter fout = new FileWriter(ErraNodeVariables.logFilename, true);
+			fout.write(data+'\n');
+			fout.close();
+			
+		} catch (IOException e) 
 		
-		//Uso la formula di stirling
-		double e=Math.E;
-		double pi=Math.PI;
-		double approx=Math.sqrt(2*pi*n)*Math.pow((n/e),n);
-		return (long)(approx);
+		{
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	
 	public static double measureRTT(String IP) throws IOException
@@ -526,8 +620,8 @@ public class NewErraClient
 		{	
 			try
 			{	UDP = new DatagramSocket(ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
-			byte[] receivedData = new byte[1024];
-			byte[] sendData = new byte[1024];
+				byte[] receivedData = new byte[1024];
+				byte[] sendData = new byte[1024];
 
 			while(true)
 			{	
@@ -541,6 +635,15 @@ public class NewErraClient
 					System.out.println("The UDP alive socket has been closed.");
 					return;	
 				}
+				
+				String P=receivedPacket.getAddress().toString().substring(1);
+				
+				if(!(P.equals(BOOTSTRAP_ADDRESS))&&validate(P))
+				{
+					BOOTSTRAP_ADDRESS=P;
+					System.out.println("The bootstrap node has changed!");
+				}
+				
 				String message=new String(receivedPacket.getData(),0,receivedPacket.getLength());
 				if (message.charAt(0)=='?')
 				{
@@ -673,7 +776,7 @@ public class NewErraClient
 					String IP=A.toString().substring(1, A.toString().indexOf(":"));
 					if (!(nodes.containsKey(IP)))
 					{
-						System.err.print("The forward request comes from an unknown host, the packet will be dropped. Informing the sender...");
+						if(ErraNodeVariables.verbose) System.err.print("The forward request comes from an unknown host, the packet will be dropped. Informing the sender...");
 						Socket AbusiveSocket = new Socket();
 						try
 						{
@@ -688,7 +791,7 @@ public class NewErraClient
 					}
 					else
 					{
-						System.out.print("Incoming packet from "+IP.toString()+"...");
+						if(ErraNodeVariables.verbose) System.out.print("Incoming packet from "+IP.toString()+"...");
 						forward F=new forward(s);
 						F.start();
 					}
@@ -739,13 +842,30 @@ public class NewErraClient
 
 				if (rL==1)
 				{
-					System.out.println("the incoming packet is intended for me!");
+					
+					Date date = new Date();
+					SimpleDateFormat ft = new SimpleDateFormat ("hh:mm:ss");
+			       
+				    String S=ft.format(date);
+					
+				    if(ErraNodeVariables.verbose) System.out.println("the incoming packet is intended for me!");
 					byte[] header=new byte[hL];
 					System.arraycopy(packet, 12, header, 0, hL);
 					String sH=new String(header, "US-ASCII");
+					String headerIntero=new String(header, "US-ASCII");
+					
+					int SN=Integer.parseInt(sH.substring(0,sH.indexOf("@")));		
+					sH=sH.substring(sH.indexOf("@")+1);
+					sH=sH.substring(sH.indexOf("@")+1);
+
+					String filename=sH.substring(0,sH.indexOf("@"));
+					sH=sH.substring(sH.indexOf("@")+1);
+
+					log(filename+'\t'+S+'\t'+SN+'\t'+packet.length);	
+					
 					byte[] data=new byte[packet.length-12-hL];
 					System.arraycopy(packet, 12+hL, data, 0, data.length);
-					FM.add(sH,data);								//Ficco dentro questo frammento all'interno della classe che si occupa di gestire il tutto
+					FM.add(headerIntero,data);								//Ficco dentro questo frammento all'interno della classe che si occupa di gestire il tutto
 				}
 				else
 				{
@@ -765,22 +885,22 @@ public class NewErraClient
 
 					try
 					{
-						System.out.println("the incoming packet is NOT intended for me.");
-						System.out.print("Start forwarding to "+nextIP+"...");
+						if(ErraNodeVariables.verbose)System.out.println("the incoming packet is NOT intended for me.");
+						if(ErraNodeVariables.verbose)System.out.print("Start forwarding to "+nextIP+"...");
 						Socket TCPClientSocket = new Socket();
 						TCPClientSocket.connect(new InetSocketAddress(nextIP,ErraNodeVariables.PORT_SUBJECT_FILE_FORWARDING),ErraNodeVariables.CONNECTION_TIMEOUT);
 						OutputStream out = TCPClientSocket.getOutputStream(); 
 						DataOutputStream dos = new DataOutputStream(out);
 						dos.write(forwardPacket, 0, forwardPacket.length);
 						TCPClientSocket.close(); 
-						System.out.println("forwarding completed successfully.");
+						if(ErraNodeVariables.verbose)System.out.println("forwarding completed successfully.");
 					}
 					catch (IOException e)
 					{
-						System.err.println("forwarding has failed. The next hop is not alive.");	
+						if(ErraNodeVariables.verbose) System.err.println("forwarding has failed. The next hop is not alive.");	
 						if (rL==2)
 						{
-							System.err.println("The packet is intended for an host unreachable, the packet will be dropped");
+							if(ErraNodeVariables.verbose) System.err.println("The packet is intended for an host unreachable, the packet will be dropped");
 						}
 						else
 						{
@@ -804,14 +924,14 @@ public class NewErraClient
 							System.arraycopy(packet, 4*(2+rL), directPacket,12, hL);
 							System.arraycopy(packet, 4*(2+rL)+hL, directPacket,12+hL, packet.length-(4*(2+rL)+hL));
 
-							System.out.print("Starting direct forwarding to "+IPDest+"...");
+							if(ErraNodeVariables.verbose) System.out.print("Starting direct forwarding to "+IPDest+"...");
 							Socket TCPClientSocket = new Socket();
 							TCPClientSocket.connect(new InetSocketAddress(IPDest,ErraNodeVariables.PORT_SUBJECT_FILE_FORWARDING),ErraNodeVariables.CONNECTION_TIMEOUT);
 							OutputStream out = TCPClientSocket.getOutputStream(); 
 							DataOutputStream dos = new DataOutputStream(out);
 							dos.write(directPacket, 0, directPacket.length);
 							TCPClientSocket.close(); 
-							System.out.println("done.");
+							if(ErraNodeVariables.verbose) System.out.println("done.");
 						}
 					}
 				}
@@ -858,6 +978,8 @@ public class NewErraClient
 			ErraNode currentNode = entry.getValue();
 			System.out.println(currentNode.getIPAddress());
 		}
+		
+		graphicInterface.update();
 	}
 
 	public static LinkedList<byte[]> wrap(String filename,String erraDest)
@@ -1064,26 +1186,42 @@ public class NewErraClient
 				Socket TCPClientSocket=null;
 				boolean sendOK=false;
 
-				System.out.print("Start sending packet "+i+"/"+pcks.size()+" to "+nextIP+"...");
+				if(ErraNodeVariables.verbose) System.out.print("Start sending packet "+i+"/"+pcks.size()+" to "+nextIP+"...");
 				try
 				{	
 					TCPClientSocket = new Socket();
+					
+					Date date = new Date();
+					SimpleDateFormat ft = new SimpleDateFormat ("hh:mm:ss");
+			       
+				    String Departure=ft.format(date);
+
+				    long startTime = System.currentTimeMillis();
+
 					TCPClientSocket.connect(new InetSocketAddress(nextIP,ErraNodeVariables.PORT_SUBJECT_FILE_FORWARDING),ErraNodeVariables.CONNECTION_TIMEOUT);
 					OutputStream out = TCPClientSocket.getOutputStream(); 
 					DataOutputStream dos = new DataOutputStream(out);
 					dos.write(packet, 0, packet.length);
 					TCPClientSocket.close(); 
-					System.out.println("finished.");i++;
+					
+					long stopTime = System.currentTimeMillis();
+				    long elapsedTime = stopTime - startTime;
+				    log(chooser.getSelectedFile().getName()+'\t'+Departure+'\t'+i+'\t'+packet.length+'\t'+elapsedTime);	
+				    
+				    
+				    if(ErraNodeVariables.verbose)System.out.println("finished.");
+				    i++;
 					sendOK=true;
+
 				}
 				catch (IOException e)
 				{	
-					System.err.print("packet "+i+" has not been sent to the next hop ["+nextIP+"]");	
+					if(ErraNodeVariables.verbose) System.err.print("packet "+i+" has not been sent to the next hop ["+nextIP+"]");	
 				}
 
 				if (!(sendOK))
 				{
-					System.out.println("...sending the packet to the final host.");	
+					if(ErraNodeVariables.verbose) System.out.println("...sending the packet to the final host.");	
 					try
 					{	
 						//Devo prima di tutto ricreare un pacchetto tutto nuovo artificiale
@@ -1119,7 +1257,7 @@ public class NewErraClient
 						DataOutputStream dos = new DataOutputStream(out);
 						dos.write(directPacket, 0, directPacket.length);
 						TCPClientSocket.close(); 
-						System.out.println("The packet "+(i)+"/"+pcks.size()+" has successfully been sent to "+IPDest);	i++;
+						if(ErraNodeVariables.verbose) System.out.println("The packet "+(i)+"/"+pcks.size()+" has successfully been sent to "+IPDest);	i++;
 						sendOK=true;
 					}
 					catch (IOException e)
@@ -1243,10 +1381,10 @@ public class NewErraClient
 	public static void main(String[] args) throws InterruptedException, IOException
 	{	
 		ErraNodeVariables.parseConfigFile();
-		
+		received=new LinkedList<String>();
 		boolean esito=false;
 
-		if(args.length!=0)
+	if(args.length!=0)
 		{
 			if  (validate(args[0]))
 			{
@@ -1269,7 +1407,6 @@ public class NewErraClient
 			{
 				esito=openBootstrapFile();
 			}
-			
 		}
 
 		if (!esito)
@@ -1278,7 +1415,13 @@ public class NewErraClient
 			System.exit(0);
 			return;
 		}
-
+		
+		
+		
+		graphicInterface=new GUI("Exotic Random Routing Protocol");
+		graphicInterface.setSize(400,600);
+		graphicInterface.setVisible(true);
+		
 		showTopology();
 
 		answerAliveRequest imAlive=new answerAliveRequest();
@@ -1296,9 +1439,11 @@ public class NewErraClient
 		FM=new fileManager();
 		listenToForward F=new listenToForward();
 		F.start();
-
-		manageRecovery R=new manageRecovery();
-		R.start();
+		if(ErraNodeVariables.recovery)
+		{
+			manageRecovery R=new manageRecovery();
+			R.start();
+		}
 
 		Scanner keyboard = new Scanner(System.in);
 

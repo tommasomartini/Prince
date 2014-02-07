@@ -33,7 +33,7 @@ public class ErraNodeVariables {
 	public static final String MSG_SUBJECT_JOIN_REQUEST = "J";
 	public static final String MSG_SUBJECT_DEPART_REQUEST = "E";
 	public static final String MSG_SUBJECT_ALIVE = "!";
-
+	
 	
 	/*
 	 * Ports
@@ -63,7 +63,16 @@ public class ErraNodeVariables {
 	public static int MAX_PAYLOAD=2048000;
 	public static int MINIMUM_PAYLOAD=100;
 	public static int PENDING_REFRESH_RATE=5000;
-	public static double beta=3.0;
+	
+	public static boolean recovery=true;
+	public static boolean verbose=true;
+	
+	
+	public static String logFilename="log.txt";
+	
+	public static double alpha=0.125;
+	public static double beta=0.25;
+	public static double k=4;
 	
 	public static void parseConfigFile()
 	{
@@ -81,41 +90,61 @@ public class ErraNodeVariables {
 				if ((!(array[0].equals("")))&&(!(array[1].equals(""))))
 				{
 					String varName="";
-					int value=0;
+					double value=0;
 					try
 					{
 						varName=array[0];
-						value=Integer.parseInt(array[1]);
+						value=Double.parseDouble(array[1]);
 						
 						if (varName.toUpperCase().equals("DELAY_ASK_FOR_ALIVE"))
-							{DELAY_ASK_FOR_ALIVE=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+							{DELAY_ASK_FOR_ALIVE=(int)value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
 						
 						if (varName.toUpperCase().equals("TIMES_TO_ASK_AGAIN"))
-							{TIMES_TO_ASK_AGAIN=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+							{TIMES_TO_ASK_AGAIN=(int)value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
 							
 						if (varName.toUpperCase().equals("DELAY_WAIT_FOR_CALLING_TO_FINISH"))
-							{DELAY_WAIT_FOR_CALLING_TO_FINISH=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+							{DELAY_WAIT_FOR_CALLING_TO_FINISH=(int)value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
 						
 						if (varName.toUpperCase().equals("PERIODASKFORALIVEAGAIN"))
-							 {periodAskForALiveAgain=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+							 {periodAskForALiveAgain=(int)value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
 						
 						if (varName.toUpperCase().equals("PERIODASKFORALIVE"))
-							 {periodAskForAlive=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+							 {periodAskForAlive=(int)value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
 						
 						if (varName.toUpperCase().equals("CONNECTION_TIMEOUT"))
-							{CONNECTION_TIMEOUT=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+							{CONNECTION_TIMEOUT=(int)value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
 						
 						if (varName.toUpperCase().equals("MAX_PAYLOAD"))
-							{MAX_PAYLOAD=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+							{MAX_PAYLOAD=(int)value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
 						
 						if (varName.toUpperCase().equals("MINIMUM_PAYLOAD"))
-							{MINIMUM_PAYLOAD=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+							{MINIMUM_PAYLOAD=(int)value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
 						
 						if (varName.toUpperCase().equals("PENDING_REFRESH_RATE"))
-							{PENDING_REFRESH_RATE=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+							{PENDING_REFRESH_RATE=(int)value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
 						
 						if (varName.toUpperCase().equals("BETA"))
 							{beta=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+						
+						if (varName.toUpperCase().equals("ALPHA"))
+							{alpha=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+						
+						if (varName.toUpperCase().equals("K"))
+							{k=value;System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);}
+						
+						
+						if (varName.toUpperCase().equals("RECOVERY"))
+						{
+							recovery=(value==0)?false:true;
+							System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);
+						}
+						
+						if (varName.toUpperCase().equals("VERBOSE"))
+						{
+							verbose=(value==0)?false:true;
+							System.out.println("Variable "+varName.toUpperCase()+ " has been initialized to "+value);
+						}
+						
 					}
 					catch (java.lang.NumberFormatException a)
 					{
