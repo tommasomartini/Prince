@@ -212,7 +212,8 @@ public class NewErraClient
 					    SimpleDateFormat ft =   new SimpleDateFormat ("hh:mm:ss");
 						
 						received.add(ft.format(dNow).toString()+": "+ fileName+" received from "+sender);
-						graphicInterface.update();
+						if(graphicInterface!=null)
+							graphicInterface.update();
 						System.out.println(S);	
 						output.close();
 
@@ -334,7 +335,7 @@ public class NewErraClient
 
 				double RTTS=t.RTTS;
 				double RTTD=t.RTTD;
-				double RTO=RTTS+ErraNodeVariables.k*RTTD;
+				double RTO=ErraNodeVariables.k*(RTTS+4*RTTD);
 				
 				if (RTTS==0 || RTTD==0)
 					return;
@@ -583,7 +584,7 @@ public class NewErraClient
 		} catch (IOException e) 
 		
 		{
-			// TODO Auto-generated catch block
+			
 			e.printStackTrace();
 		}
 	}

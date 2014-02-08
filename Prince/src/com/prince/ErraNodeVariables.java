@@ -72,7 +72,7 @@ public class ErraNodeVariables {
 	
 	public static double alpha=0.125;
 	public static double beta=0.25;
-	public static double k=4;
+	public static double k=3;
 	
 	public static void parseConfigFile()
 	{
