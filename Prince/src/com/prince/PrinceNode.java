@@ -128,7 +128,7 @@ public class PrinceNode extends NewErraClient
 		refresh.start();
 		confirmReception C=new confirmReception();
 		C.start();
-		received=new LinkedList<String>();
+		notifications=new LinkedList<String>();
 		if(ErraNodeVariables.recovery)
 		{
 			manageRecovery R=new manageRecovery();
@@ -151,7 +151,7 @@ public class PrinceNode extends NewErraClient
 			String input = keyboard.nextLine();
 			if (input.toUpperCase().equals("S"))
 			{
-				send();
+				send("","");
 			}
 		}
 		

@@ -42,7 +42,7 @@ public class GUI extends Frame implements WindowListener,ActionListener
         		
         		if (S.toLowerCase().contains("send"))
         		{
-        			NewErraClient.send();
+        			NewErraClient.send("","");
         		}
         		
         		if (S.toLowerCase().contains("refresh"))
@@ -135,15 +135,15 @@ public class GUI extends Frame implements WindowListener,ActionListener
 
         	JPanel ric=new JPanel();
         	ric.setLayout(new GridLayout(1,1));
-        	String[][] dati = new String[NewErraClient.received.size()][1];
+        	String[][] dati = new String[NewErraClient.notifications.size()][1];
         	rowIndex = 0;
-        	for (Iterator<String> it = NewErraClient.received.iterator(); it.hasNext();)
+        	for (Iterator<String> it = NewErraClient.notifications.iterator(); it.hasNext();)
 			{
         		String S = it.next();
         		dati[rowIndex][0] = S;
         		rowIndex++;
         	}
-        	String[] names = {"Received files"};
+        	String[] names = {"Received and sent files"};
         	JTable table2 = new JTable(dati, names);
         	//table.setPreferredScrollableViewportSize(new Dimension(200, 330));
         	table2.setFillsViewportHeight(true);
@@ -151,9 +151,7 @@ public class GUI extends Frame implements WindowListener,ActionListener
         	
         	ric.add(scrollPane2);
         	add(ric);
-        	
-        	
-        	
+
         	validate();
         	repaint();
         	doLayout();
