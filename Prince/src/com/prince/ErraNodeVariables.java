@@ -8,13 +8,12 @@ import java.io.IOException;
 
 public class ErraNodeVariables {
 
-	//
 	public static long DELAY_ASK_FOR_ALIVE = 1000 * 60;	// time before first alive request
 	public static int TIMES_TO_ASK_AGAIN = 3;
 	public static long DELAY_WAIT_FOR_CALLING_TO_FINISH = 1000 * 1;	// if I have to update the tables and the Bootstrap is not on "running" mode I'll wait for this time before attempting again to access tables
 	public static long periodAskForALiveAgain = 1000 * 2;	// default: 2 seconds
 	public static long periodAskForAlive = 1000 * 60;		// default: 60 seconds
-	
+//	public static long PERIOD_WAIT_FOR_REFUGEES = 1000;
 	
 	public static final String DELIMITER_AFTER_MSG_CHAR = "@";
 	public static final String DELIMITER_MSG_PARAMS = "#";
@@ -24,6 +23,7 @@ public class ErraNodeVariables {
 	public static final String MSG_PRINCE_ALIVE_REQUEST = "?";
 	public static final String MSG_PRINCE_TABLE_UPDATE = "T";
 	public static final String MSG_PRINCE_SEND_IMMIGRANT = "I";
+	public static final String MSG_PRINCE_REFUGEES_LIST_REQUEST = "P";
 //	public static final String MSG_PRINCE_EXILED_NODE = "X";	// DEPRECATED
 //	public static final String MSG_PRINCE_OUT_OF_NETWORK = "O";	// DEPRECATED
 //	public static final String MSG_PRINCE_MY_ROLE = "P";	// DEPRECATED
@@ -45,6 +45,7 @@ public class ErraNodeVariables {
 	public static final int PORT_PRINCE_DEPARTED_NODE = 8002;
 	public static final int PORT_PRINCE_ALIVE_NODE = 8003;
 	public static final int PORT_PRINCE_IMMIGRANT = 8006;
+	public static final int PORT_PRINCE_PROTECTOR_LISTENER = 8007;
 	public static final int PORT_PRINCE_ALIVE_LISTENER = 7000;
 //	public static final int PORT_PRINCE_MY_AMBASSADOR_LISTENER = 8004;		// DEPRECATED	
 //	public static final int PORT_PRINCE_FOREIGN_AMBASSADOR_LISTENER = 8005;	// DEPRECTAED
