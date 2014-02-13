@@ -150,7 +150,7 @@ public class PrinceNode extends NewErraClient {
 			String inputFromKeyboard = fromKeyboard.nextLine();
 			if (inputFromKeyboard.equalsIgnoreCase("S")) {
 				try {
-					send();
+					send("", "");
 				} catch (UnsupportedEncodingException e) {
 					e.printStackTrace();
 				} catch (UnknownHostException e) {

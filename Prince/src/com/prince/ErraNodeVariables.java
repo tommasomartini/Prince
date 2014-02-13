@@ -23,6 +23,7 @@ public class ErraNodeVariables {
 	public static final String MSG_PRINCE_WELCOME = "W";
 	public static final String MSG_PRINCE_ALIVE_REQUEST = "?";
 	public static final String MSG_PRINCE_TABLE_UPDATE = "T";
+	public static final String MSG_PRINCE_SEND_IMMIGRANT = "I";
 //	public static final String MSG_PRINCE_EXILED_NODE = "X";	// DEPRECATED
 //	public static final String MSG_PRINCE_OUT_OF_NETWORK = "O";	// DEPRECATED
 //	public static final String MSG_PRINCE_MY_ROLE = "P";	// DEPRECATED
@@ -38,16 +39,15 @@ public class ErraNodeVariables {
 	/*
 	 * Ports
 	 */
-	//	Prince
+
 	//	Listening ports
 	public static final int PORT_PRINCE_JOINED_NODE = 8001;
 	public static final int PORT_PRINCE_DEPARTED_NODE = 8002;
 	public static final int PORT_PRINCE_ALIVE_NODE = 8003;
-	
+	public static final int PORT_PRINCE_IMMIGRANT = 8006;
 	public static final int PORT_PRINCE_ALIVE_LISTENER = 7000;
-	
-	public static final int PORT_PRINCE_MY_AMBASSADOR_LISTENER = 8004;		
-	public static final int PORT_PRINCE_FOREIGN_AMBASSADOR_LISTENER = 8005;
+//	public static final int PORT_PRINCE_MY_AMBASSADOR_LISTENER = 8004;		// DEPRECATED	
+//	public static final int PORT_PRINCE_FOREIGN_AMBASSADOR_LISTENER = 8005;	// DEPRECTAED
     public static final int TCP_THRASHEDOUT=8004;
     public static final int TCP_FILERECEIVED=8005;
 

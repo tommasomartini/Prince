@@ -1,0 +1,14 @@
+duecento.dat	02:05:38	3059
+duecento.dat	02:06:19	3176
+duecento.dat	02:07:15	3347
+duecento.dat	02:07:29	2920
+duecento.dat	02:07:43	2986
+duecento.dat	02:07:57	3060
+duecento.dat	02:08:11	3289
+duecento.dat	02:08:25	3046
+duecento.dat	02:08:39	3214
+duecento.dat	02:08:53	2683
+duecento.dat	02:09:06	3008
+		
+		3071.6363636364
+		175.9644967948
