@@ -1,0 +1,10 @@
+duecento.dat	02:10:16	3724
+duecento.dat	02:10:31	3553
+duecento.dat	02:10:46	3595
+duecento.dat	02:11:00	3549
+duecento.dat	02:11:14	3511
+duecento.dat	02:11:29	2962
+duecento.dat	02:11:43	3363
+duecento.dat	02:11:57	3479
+duecento.dat	02:12:11	3469
+duecento.dat	02:12:25	2960

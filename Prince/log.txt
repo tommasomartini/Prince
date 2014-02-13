@@ -1,9 +1,6 @@
-/home/mattia/Desktop/esperimento	11:24:18	1	509	6
-/home/mattia/workspace/PrinceProject/Prince/Prince/log.txt	11:26:15	1	93	19
-/home/mattia/Desktop/172.21.6.0	11:33:24	1	508	4
-/home/mattia/Desktop/172.21.6.0	11:33:55	1	507	10
-/home/mattia/workspace/PrinceProject/Prince/Prince/files/172.21.6.0	11:34:16	1	508	3
-/home/mattia/workspace/PrinceProject/Prince/Prince/files/172.21.6.0	11:34:22	1	508	128
-/home/mattia/workspace/PrinceProject/Prince/Prince/files/172.21.6.0	11:36:48	1	508	10
-/home/mattia/workspace/PrinceProject/Prince/Prince/files/172.21.6.0	11:39:57	1	508	8
-/home/mattia/workspace/PrinceProject/Prince/Prince/files/172.21.6.0	11:43:34	1	101	34
+cento.dat	02:30:46	1696
+cento.dat	02:30:57	1555
+cento.dat	02:32:01	1704
+cento.dat	02:32:15	1494
+cento.dat	02:32:29	1550
+cento.dat	02:32:43	1704

@@ -70,6 +70,12 @@ public class NewErraClient
 	public static String BOOTSTRAP_ADDRESS="";
 	public static fileManager FM;
 
+	
+	//DA RIMUOVERTE
+	
+	public static int tempN=0;
+	
+	
 	public static List<String> notifications;
 
 	public static GUI graphicInterface;
@@ -310,9 +316,14 @@ public class NewErraClient
 			if (esito)
 			{
 				fileList.remove(t);			//The add operation has completed the file, remove it!
+				if(fileList.size()==0)
+				{
+					fileList=null;
+					System.gc();
+				}
 				String S="Received file "+t.fileName+" from "+t.sender;
 				JOptionPane.showMessageDialog(null, S, "File received", JOptionPane.INFORMATION_MESSAGE);
-				if(fileList.size()==0)
+				if(fileList!=null && fileList.size()==0)
 					fileList=null;
 			}
 		}
@@ -356,20 +367,27 @@ public class NewErraClient
 
 			if (toRemove!=null)
 			{
-				System.out.print("File "+toRemove.fileName+" has been dropped. ");
-				fileList.remove(toRemove);
-				Socket ACKSocket = new Socket();
-				try
-				{
-					ACKSocket.connect(new InetSocketAddress(toRemove.sender,ErraNodeVariables.TCP_FILERECEIVED),ErraNodeVariables.CONNECTION_TIMEOUT);
-					DataOutputStream streamToServer = new DataOutputStream(ACKSocket.getOutputStream());
-					streamToServer.writeBytes(getMyIP()+" has NOT RECEIVED "+toRemove.fileName + "! Please, send it again!"+'\n');	
-					ACKSocket.close();
-					System.out.println("I've asked the sender to transmit the file again.");
-				}
-				catch (IOException e)
-				{System.err.println("The sender is not available anymore.");}
+				JPanel panel = new JPanel();
+				panel.add(new JLabel("The file "+toRemove.fileName+" is going to be dropped. Confirm the operation and ask the file retransmission?"));
+				int result = JOptionPane.showConfirmDialog(null, panel, "Receiver", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
 
+				if (result==JOptionPane.OK_OPTION)
+				{
+					System.out.print("File "+toRemove.fileName+" has been dropped. ");
+					fileList.remove(toRemove);
+					Socket ACKSocket = new Socket();
+					try
+					{
+						ACKSocket.connect(new InetSocketAddress(toRemove.sender,ErraNodeVariables.TCP_FILERECEIVED),ErraNodeVariables.CONNECTION_TIMEOUT);
+						DataOutputStream streamToServer = new DataOutputStream(ACKSocket.getOutputStream());
+						streamToServer.writeBytes(getMyIP()+" has NOT RECEIVED "+toRemove.fileName + "! Please, send it again!"+'\n');	
+						ACKSocket.close();
+						System.out.println("I've asked the sender to transmit the file again.");
+					}
+					catch (IOException e)
+					{System.err.println("The sender is not available anymore.");}
+
+				}
 			}
 		}
 
@@ -826,7 +844,7 @@ public class NewErraClient
 				int bytesRead = -1;  
 				while((bytesRead = inputStream.read(content))!= -1) 
 				{  
-					baos.write( content, 0, bytesRead );  
+					baos.write( content, 0, bytesRead);  
 				} 
 
 				byte[] packet=baos.toByteArray();
@@ -1000,9 +1018,14 @@ public class NewErraClient
 		while((int)file.length()/packets>ErraNodeVariables.MAX_PAYLOAD)
 			packets++;	
 
-		boolean valid=false;
+		
 
-		while(!(valid))
+		
+		packets=1;
+		
+		/*
+		 * boolean valid=false;
+		 * while(!(valid))
 		{
 			String p= JOptionPane.showInputDialog("Number of packet to split the file in: ",packets);
 			int N=Integer.parseInt(p);
@@ -1011,7 +1034,7 @@ public class NewErraClient
 				valid=true;
 				packets=N;
 			}
-		}
+		}*/
 
 
 		int packets_length=(int)file.length()/packets;
@@ -1182,6 +1205,13 @@ public class NewErraClient
 		}
 
 		int i=1;
+		
+		long startTime = System.currentTimeMillis();
+		Date date = new Date();
+		SimpleDateFormat ft = new SimpleDateFormat ("hh:mm:ss");
+
+		String Departure=ft.format(date);
+
 		for (Iterator<byte[]> it = pcks.iterator(); it.hasNext();)
 		{
 			byte[] packet = (byte[])(it.next());
@@ -1197,33 +1227,24 @@ public class NewErraClient
 			{	
 				TCPClientSocket = new Socket();
 
-				Date date = new Date();
-				SimpleDateFormat ft = new SimpleDateFormat ("hh:mm:ss");
-
-				String Departure=ft.format(date);
-
-				long startTime = System.currentTimeMillis();
+				
 
 				TCPClientSocket.connect(new InetSocketAddress(nextIP,ErraNodeVariables.PORT_SUBJECT_FILE_FORWARDING),ErraNodeVariables.CONNECTION_TIMEOUT);
 				OutputStream out = TCPClientSocket.getOutputStream(); 
 				DataOutputStream dos = new DataOutputStream(out);
 				dos.write(packet, 0, packet.length);
 				TCPClientSocket.close(); 
-
-				long stopTime = System.currentTimeMillis();
-				long elapsedTime = stopTime - startTime;
-				log(path+'\t'+Departure+'\t'+i+'\t'+packet.length+'\t'+elapsedTime);	
-
-
 				if(ErraNodeVariables.verbose)System.out.println("finished.");
 				i++;
 				sendOK=true;
-				notifications.add(path+" has been sent to "+IPDest);
+				
 			}
 			catch (IOException e)
 			{	
 				if(ErraNodeVariables.verbose) System.err.print("packet "+i+" has not been sent to the next hop ["+nextIP+"]");	
 			}
+			
+			
 
 			if (!(sendOK))
 			{
@@ -1272,6 +1293,11 @@ public class NewErraClient
 				}
 			}
 		}
+		
+		long stopTime = System.currentTimeMillis();
+		long elapsedTime = stopTime - startTime;
+		log(path+'\t'+Departure+'\t'+elapsedTime);	
+		
 		System.out.println("File processing completed");
 		return;
 	}
@@ -1560,7 +1586,13 @@ public class NewErraClient
 			if (input.toUpperCase().equals("S"))
 			{
 				if (!(TO))
-					send("","");
+					
+					for(int j=0;j<50;j++)
+					{
+						send("cento.dat","192.168.0.2");
+						Thread.sleep(12000);
+					}
+					
 				else
 				{System.err.println("This host is not allowed to send files because it has been thrashed out! Restart the program and join the ERRA network again.");}
 			}
