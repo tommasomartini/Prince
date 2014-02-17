@@ -15,14 +15,14 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.util.Collection;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -31,19 +31,14 @@ import javax.swing.JFrame;
 
 import com.prince.ErraNode.NodeState;
 import com.prince.ErraNode.NodeType;
-import com.prince.NewErraClient.manageRecovery;
 
-public class PrinceNode extends NewErraClient 
-{
+public class PrinceNode extends NewErraClient {
 
 	private boolean ACTIVE_ALIVE_RQST = true;
-
-	//	Times and periods in milliseconds
+	private boolean ACTIVE_INFO_LOG = true;
+	private boolean ACTIVE_ERROR_LOG = true;
 	
-	
-	//	private static final long INITIALIZATION_PERIOD = 1000 * 5; // initialization duration
-
-
+	private static final String PASSWORD = "erra";
 	
 	//	States
 	private enum PrinceState {
@@ -56,20 +51,22 @@ public class PrinceNode extends NewErraClient
 	private static PrinceState currentState;
 
 	private ErraNode me;
+	private ErraNode protectorate;	// Prince I have to look after
+	private String subProtectorate;	// Protectorate of my protectorate
 
 	//	ServerSockets
 	private ServerSocket joinedNodeListener;
 	private ServerSocket departedNodeListener;
 	private DatagramSocket aliveNodeListener;
-	private DatagramSocket myAmbassadorReceiverSocket;
-	private DatagramSocket foreignAmbassadorReceiverSocket;
+	private ServerSocket immigrantListener;
+	private ServerSocket protectorServerSocket;
 
 	//	Listening threads
 	private JoinedNodeListenerThread joinedNodeListenerThread;
 	private DepartedNodeListenerThread departedNodeListenerThread;
 	private AliveNodeListenerThread aliveNodeListenerThread;
-	private MyAmbassadorListenerThread myAmbassadorListenerThread;
-	private ForeignAmbassadorListenerThread foreignAmbassadorListenerThread;
+	private ImmigrantListenerThread immigrantListenerThread;
+	private ProtectorListenerThread protectorListenerThread;
 
 	//	Speaking threads
 	private AliveAskerThread aliveAskerThread;
@@ -77,12 +74,8 @@ public class PrinceNode extends NewErraClient
 	//	private Map<String, ErraNode> nodes;
 	private Map<String, ErraNode.NodeState> rollCallRegister;	// "registro per fare l'appello"
 	private Map<String, ErraNode> princes;	// other active bootstraps
-	private Map<Integer, Long> ambassadorDepartureTimes;
-	private Map<Integer, Long> ambassadorTripDuration;
-
+	private Map<String, ErraNode> refugees;	// subjects I have to look after in case their Prince falls
 	private NodeViewer nodeViewer;
-
-	//	private boolean handshake;
 
 	private Timer timer;
 
@@ -94,8 +87,8 @@ public class PrinceNode extends NewErraClient
 		nodes = new HashMap<String, ErraNode>();
 		rollCallRegister = new HashMap<String, NodeState>();
 		princes = new HashMap<String, ErraNode>();
-		ambassadorDepartureTimes = new HashMap<Integer, Long>();
-		ambassadorTripDuration = new HashMap<Integer, Long>();
+		
+		nodes.put(myIPAddress, me);
 
 		timer = new Timer();
 
@@ -108,65 +101,97 @@ public class PrinceNode extends NewErraClient
 		joinedNodeListenerThread = new JoinedNodeListenerThread();
 		departedNodeListenerThread = new DepartedNodeListenerThread();
 		aliveNodeListenerThread = new AliveNodeListenerThread();
-		myAmbassadorListenerThread = new MyAmbassadorListenerThread();
-		foreignAmbassadorListenerThread = new ForeignAmbassadorListenerThread();
+		immigrantListenerThread = new ImmigrantListenerThread();
+		protectorListenerThread = new ProtectorListenerThread();
 	}	// PrinceNode()
 
-	public static void main(String[] args) throws UnsupportedEncodingException, UnknownHostException {
+	public static void main(String[] args) {
 
 		/////////////////////////
 		//	ErraClient functions
 		ErraNodeVariables.parseConfigFile();
-		
 		answerAliveRequest A=new answerAliveRequest();
 		A.start();
-		
 		FM = new fileManager();
 		listenToForward f = new listenToForward();
 		f.start();
 		refreshTopology refresh = new refreshTopology();
 		refresh.start();
-		confirmReception C=new confirmReception();
+		confirmReception C = new confirmReception();
 		C.start();
-		notifications=new LinkedList<String>();
-		if(ErraNodeVariables.recovery)
-		{
+		notifications = new LinkedList<String>();
+		if (ErraNodeVariables.recovery) {
 			manageRecovery R=new manageRecovery();
 			R.start();
 		}
-
 		////////////////////////	
 
 		PrinceNode princeNode = new PrinceNode();
-//		princeNode.initializePrinceNode();
-		while (currentState != PrinceState.STATE_RUNNING)
-		{
+
+		while (currentState != PrinceState.STATE_RUNNING) {
+		
 		}
 		princeNode.runPrinceNode();
-		
-		Scanner keyboard = new Scanner(System.in);
-		
-		while(true)
-		{	
-			String input = keyboard.nextLine();
-			if (input.toUpperCase().equals("S"))
-			{
-				send("","");
-			}
-		}
-		
 	}	// main()
 
 	private void runPrinceNode() {
-		System.out.println("=====\n#Prince " + me.getIPAddress() + " activated.");
+		System.out.println("\nPrince " + me.getIPAddress() + " activated.\n");
+		if (!ACTIVE_ALIVE_RQST) {
+			System.err.println("Attention! Alive requests are not active!");
+		}
 		nodeViewer.showNetwork(nodes, me);
 		joinedNodeListenerThread.start();
 		departedNodeListenerThread.start();
 		aliveNodeListenerThread.start();
+		immigrantListenerThread.start();
+		protectorListenerThread.start();
 		TimerTask task = new AliveAskerTask();
 		if (ACTIVE_ALIVE_RQST) {
 			timer.schedule(task, ErraNodeVariables.DELAY_ASK_FOR_ALIVE, ErraNodeVariables.periodAskForAlive);
 		}
+		
+		System.out.print("> ");
+		Scanner fromKeyboard = new Scanner(System.in);
+		while(true) {	
+			String inputFromKeyboard = fromKeyboard.nextLine();
+			if (inputFromKeyboard.equalsIgnoreCase("S")) {
+				try {
+					send("", "");
+				} catch (UnsupportedEncodingException e) {
+					e.printStackTrace();
+				} catch (UnknownHostException e) {
+					e.printStackTrace();
+				}
+			} else if (inputFromKeyboard.equalsIgnoreCase("shutdown")) {
+				Scanner psswdScanner = new Scanner(System.in);
+				System.out.println("Enter the password: ");
+				System.out.print("> ");
+				String psswd = psswdScanner.next();
+				if (psswd.equals(PASSWORD)) {
+					System.out.println("Password accepted!");
+					while (!abdicate()) {
+						
+					}
+					break;
+				} else {
+					System.err.println("Wrong password!");
+					System.out.print("> ");
+				}
+			} else if (inputFromKeyboard.equalsIgnoreCase("fquit")) {
+				System.err.println("Forced exit.");
+				break;
+			} else if (inputFromKeyboard.equalsIgnoreCase("help")) {
+				System.out.println("\nMANUAL\n- \"send\": send a file.\n- \"stat\": show statistics of this Prince node.\n- \"shutdown\": shutdown this prince node (password is: \"" + PASSWORD + "\").\n- \"help\": show this manual.\n");
+				System.out.print("> ");
+			} else if (inputFromKeyboard.equalsIgnoreCase("stat")) {
+				System.out.println("Sorry! Statistics not yet available for this Prince node.");
+				System.out.print("> ");
+			} else {
+				System.out.println("Unknown command!");
+				System.out.print("> ");
+			}
+		}
+		System.exit(0);
 	}
 
 	private class AliveAskerTask extends TimerTask {
@@ -176,18 +201,10 @@ public class PrinceNode extends NewErraClient
 				aliveAskerThread = new AliveAskerThread();
 				aliveAskerThread.start();
 			} else {
-				System.out.println("No nodes in the network, I won't send any alive request.");
+				princeInfoLog("No nodes in the network, I won't send any alive request.");
 			}
 		}
 	}	// AliveAskerTask
-
-	//	private class StopHandshakeTask extends TimerTask {
-	//		@Override
-	//		public void run() {
-	//			handshake = false;
-	//			System.out.println("Stop handshaking!");
-	//		}
-	//	}	// StopHandshakeTask
 
 	/*
 	 * ****************************************************************************
@@ -277,94 +294,95 @@ public class PrinceNode extends NewErraClient
 			}
 		}
 	}	// AliveNodeListenerThread
+	
+	private class ImmigrantListenerThread extends Thread {
 
-	//	private class KeyboardListenerThread extends Thread {
-	//		//		TODO
-	//	}	// KeyboardListenerThread
-
-	private class ForeignAmbassadorListenerThread extends Thread {
-
-		public ForeignAmbassadorListenerThread() {
+		public ImmigrantListenerThread() {
 			super();
 			try {
-				foreignAmbassadorReceiverSocket = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_FOREIGN_AMBASSADOR_LISTENER);
-			} catch (SocketException e) {
-				e.printStackTrace();
-			}
-		}
-
-		@Override
-		public void run() {
-			super.run();
-			try {
-				//				System.out.println("Waiting for foreign ambassadors.");	//TODO remove me
-				byte[] receivedBuffer = new byte[1000];
-				DatagramPacket receivedPacket;
-				DatagramPacket sendingPacket;
-				DatagramSocket sendingSocket = new DatagramSocket();
-				String foreignAmbassadorMsg;
-				String answerMsg = ErraNodeVariables.MSG_PRINCE_ANSWER_HANDSHAKE + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR;
-				int foreignAmbassadorID;
-				while (true) {
-					receivedPacket = new DatagramPacket(receivedBuffer, receivedBuffer.length);
-					foreignAmbassadorReceiverSocket.receive(receivedPacket);
-					System.out.println("Ip: " + receivedPacket.getAddress().getHostAddress());
-					foreignAmbassadorMsg = new String(receivedPacket.getData(), 0, receivedPacket.getLength());
-					String[] info = foreignAmbassadorMsg.split(ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR);
-					if (info[0].equalsIgnoreCase(ErraNodeVariables.MSG_PRINCE_HANDSHAKE)) {
-						foreignAmbassadorID = Integer.parseInt(info[1]);
-						System.out.println("Foreign ambassador with ID: " + foreignAmbassadorID + ".");	//TODO remove me
-						byte[] sendingBuffer = (answerMsg + foreignAmbassadorID).getBytes();
-						sendingPacket = new DatagramPacket(sendingBuffer, sendingBuffer.length, receivedPacket.getAddress(), ErraNodeVariables.PORT_PRINCE_MY_AMBASSADOR_LISTENER);
-						sendingSocket.send(sendingPacket);
-					}
-				}
+				immigrantListener = new ServerSocket(ErraNodeVariables.PORT_PRINCE_IMMIGRANT);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		}
-	}	// AmbassadorListenerThread
-
-	private class MyAmbassadorListenerThread extends Thread {
-
-		public MyAmbassadorListenerThread() {
-			super();
-			try {
-				myAmbassadorReceiverSocket = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_MY_AMBASSADOR_LISTENER);
-			} catch (SocketException e) {
-				e.printStackTrace();
-			}
-		}
 
 		@Override
 		public void run() {
 			super.run();
-			try {
-				System.out.println("Waiting for my ambassadors.");
-				byte[] buffer = new byte[1000];
-				DatagramPacket datagramPacket;
-				String ambassadorReport;
-				int ambassadorID;
-				while (currentState == PrinceState.STATE_INITIALIZING) {
-					datagramPacket = new DatagramPacket(buffer, buffer.length);
-					myAmbassadorReceiverSocket.receive(datagramPacket);
-					ambassadorReport = new String(datagramPacket.getData(), 0, datagramPacket.getLength());
-					String[] info = ambassadorReport.split(ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR);
-					if (info[0].equalsIgnoreCase(ErraNodeVariables.MSG_PRINCE_ANSWER_HANDSHAKE)) {
-						ambassadorID = Integer.parseInt(info[1]);
-						System.out.println("Ricevuto " + ambassadorID);
-						if (ambassadorDepartureTimes.containsKey(ambassadorID)) {
-							long tripDuration = System.nanoTime() - ambassadorDepartureTimes.get(ambassadorID);
-							ambassadorTripDuration.put(ambassadorID, tripDuration);
-							System.out.println("Ambassador " + ambassadorID + " back home. Time " + tripDuration);
+			InputStreamReader inputStreamReader;
+			BufferedReader bufferedReader;
+			while (true) {
+				try {
+					Socket socket = immigrantListener.accept();
+					inputStreamReader = new InputStreamReader(socket.getInputStream());
+					bufferedReader = new BufferedReader(inputStreamReader);
+					String msg = bufferedReader.readLine();
+					if (msg.equalsIgnoreCase(ErraNodeVariables.MSG_PRINCE_SEND_IMMIGRANT)) {
+						String message = msg.substring(2);	// remove "I@"
+						String[] immigrants = message.split(ErraNodeVariables.DELIMITER_MSG_PARAMS);
+						princeInfoLog("Adding immigrant nodes:");
+						for (int i = 0; i < immigrants.length; i++) {
+							ErraNode erraNode = new ErraNode(immigrants[i], NodeType.NODE_TYPE_SUBJECT, NodeState.NODE_STATE_ALIVE);
+							erraNode.setBootstrapOwner(me);
+							erraNode.setInMyCounty(true);
+							addErraNode(erraNode);
+							princeInfoLog("- " + erraNode.getIPAddress());
 						}
+					} else {
+						princeErrorLog("Expected \"I\" received: " + msg);
 					}
+				} catch (IOException e) {
+					e.printStackTrace();
 				}
+			}
+		}
+	}	// AliveNodeListenerThread
+	
+	private class ProtectorListenerThread extends Thread {
+
+		public ProtectorListenerThread() {
+			super();
+			try {
+				protectorServerSocket = new ServerSocket(ErraNodeVariables.PORT_PRINCE_PROTECTOR_LISTENER);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		}
-	}	// AmbassadorListenerThread
+
+		@Override
+		public void run() {
+			super.run();
+			InputStreamReader inputStreamReader;
+			BufferedReader bufferedReader;
+			while (true) {
+				try {
+					Socket socket = protectorServerSocket.accept();
+					inputStreamReader = new InputStreamReader(socket.getInputStream());
+					bufferedReader = new BufferedReader(inputStreamReader);
+					PrintStream printStream = new PrintStream(socket.getOutputStream());
+					String msg = bufferedReader.readLine();
+					if (msg.equalsIgnoreCase(ErraNodeVariables.MSG_PRINCE_REFUGEES_LIST_REQUEST)) {
+						String protectorAddress = socket.getInetAddress().getHostAddress();
+						if (!nodes.containsKey(protectorAddress)) {
+							princeErrorLog("Attention! A node outside the network asked to see my subjects!");
+						} else {
+//							<myProtectorateIP>@<mySubj_1>#<mySubj_2>#<mySubjc_3>#...#
+							String subjectList = protectorate.getIPAddress() + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR;
+							for (Map.Entry<String, NodeState> entry : rollCallRegister.entrySet()) {
+								subjectList += entry.getKey() + ErraNodeVariables.DELIMITER_MSG_PARAMS;
+							}
+							printStream.println(subjectList);
+						}
+						socket.close();
+					} else {
+						princeErrorLog("Expected \"" + ErraNodeVariables.MSG_PRINCE_REFUGEES_LIST_REQUEST + "\" received: " + msg);
+					}
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}	// ProtectorListenerThread
 
 	/*
 	 * Speaking Threads
@@ -381,7 +399,6 @@ public class PrinceNode extends NewErraClient
 			}
 			showNetworkTable();
 			try {
-//				DatagramSocket datagramSocket = new DatagramSocket(ErraNodeVariables.PORT_PRINCE_ASK_ALIVE_NODES);
 				DatagramSocket datagramSocket = new DatagramSocket();
 				DatagramPacket datagramPacket;
 				byte[] msg = (new String(ErraNodeVariables.MSG_PRINCE_ALIVE_REQUEST)).getBytes();
@@ -393,9 +410,9 @@ public class PrinceNode extends NewErraClient
 				boolean stillMissingNodes = true;
 				List<String> missingNodes = new LinkedList<String>();
 				while (rollCallingCounter >= 0 && stillMissingNodes) {
-					System.out.println("Waiting for alive answers...");
+					princeInfoLog("Waiting for alive answers...");
 					showNetworkTable();
-					Thread.sleep((ErraNodeVariables.TIMES_TO_ASK_AGAIN - rollCallingCounter + 1) * ErraNodeVariables.periodAskForALiveAgain);	// TODO controllare qui!
+					Thread.sleep((ErraNodeVariables.TIMES_TO_ASK_AGAIN - rollCallingCounter + 1) * ErraNodeVariables.periodAskForALiveAgain);
 					for (Map.Entry<String, NodeState> registerEntry : rollCallRegister.entrySet()) {
 						if (registerEntry.getValue() == NodeState.NODE_STATE_MISSING && !missingNodes.contains(registerEntry.getKey())) {
 							missingNodes.add(registerEntry.getKey());
@@ -406,13 +423,13 @@ public class PrinceNode extends NewErraClient
 
 					if (missingNodes.isEmpty()) {
 						stillMissingNodes = false;
-						System.out.println("No missing nodes."); // TODO remove me!!!
+						princeInfoLog("No missing nodes.");
 					} else if (rollCallingCounter > 0) {	// send again
 						int numRqst = ErraNodeVariables.TIMES_TO_ASK_AGAIN - rollCallingCounter + 1;
-						System.out.println("Missing nodes! Send request bis number: " + numRqst + "/" + ErraNodeVariables.TIMES_TO_ASK_AGAIN + " to the following nodes:"); // TODO remove me!!!
+						princeInfoLog("Missing nodes! Send request bis number: " + numRqst + "/" + ErraNodeVariables.TIMES_TO_ASK_AGAIN + " to the following nodes:");
 						for (Iterator<String> iterator = missingNodes.iterator(); iterator.hasNext();) {
 							String missingNodeIPAddress = (String)iterator.next();
-							System.out.println("- " + missingNodeIPAddress);
+							princeInfoLog("- " + missingNodeIPAddress);
 							datagramPacket = new DatagramPacket(msg, msg.length, InetAddress.getByName(missingNodeIPAddress), ErraNodeVariables.PORT_SUBJECT_ALIVE_LISTENER);
 							datagramSocket.send(datagramPacket);
 						}						
@@ -425,8 +442,15 @@ public class PrinceNode extends NewErraClient
 					int indexMissingNodes = 0;
 					for (Iterator<String> iterator = missingNodes.iterator(); iterator.hasNext();) {
 						String missingNodeIPAddress = (String)iterator.next();
+						if (protectorate.getIPAddress().equalsIgnoreCase(missingNodeIPAddress)) {	// My protectorate has fallen
+							protectorate = nodes.get(subProtectorate);
+							for (Map.Entry<String, ErraNode> entry : refugees.entrySet()) {
+								ErraNode refugee = entry.getValue();
+								updateRegister(refugee.getIPAddress(), NodeState.NODE_STATE_ALIVE);
+							}
+						}
 						deadNodes[indexMissingNodes] = removeErraNode(missingNodeIPAddress);
-						System.out.println("Node " + missingNodeIPAddress + " lost.");
+						princeInfoLog("Node " + missingNodeIPAddress + " lost.");
 						indexMissingNodes++;
 					}
 					spreadNetworkChanges(deadNodes, false);
@@ -472,7 +496,7 @@ public class PrinceNode extends NewErraClient
 			}
 
 			if (msgFromNode == null || msgFromNode.length() == 0 || !msgFromNode.equalsIgnoreCase(ErraNodeVariables.MSG_SUBJECT_JOIN_REQUEST)) {
-				System.err.println("Il messaggio del client che chiede di aggiungersi alla rete e' vuoto o diverso da \'J\'");
+				princeErrorLog("Il messaggio del client che chiede di aggiungersi alla rete e' vuoto o diverso da \'J\'");
 			} else {
 				InetAddress inetAddress = socket.getInetAddress();
 				String ipString = inetAddress.getHostAddress();
@@ -523,9 +547,8 @@ public class PrinceNode extends NewErraClient
 				e.printStackTrace();
 			}
 			if (msgFromNode == null || msgFromNode.length() == 0 || !msgFromNode.substring(0, 1).equalsIgnoreCase(ErraNodeVariables.MSG_SUBJECT_DEPART_REQUEST)) {
-				System.err.println("Il messaggio del client che chiede di aggiungersi alla rete e' vuoto o diverso da \'E\'");
+				princeErrorLog("Il messaggio del client che chiede di aggiungersi alla rete e' vuoto o diverso da \'E\'");
 			} else {
-				// messaggio nella forma E@erraIP
 				String[] segments = msgFromNode.split(ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR);
 				String ipAddress = segments[1];
 				while (currentState != PrinceState.STATE_RUNNING) {
@@ -538,10 +561,10 @@ public class PrinceNode extends NewErraClient
 				ErraNode removedNode = removeErraNode(ipAddress);
 				try {
 					if (removedNode != null) {
-						System.out.println("Node " + ipAddress + " removed from the network.");
+						princeInfoLog("Node " + ipAddress + " removed from the network.");
 						spreadNetworkChanges(new ErraNode[]{removedNode}, false);
 					} else {
-						System.err.println("Node " + ipAddress + " not in the network.");
+						princeErrorLog("Node " + ipAddress + " not in the network (or trying to remove myself).");
 					}
 					socket.close();
 				} catch (IOException e) {
@@ -565,90 +588,64 @@ public class PrinceNode extends NewErraClient
 		public void run() {
 			super.run();
 			String msgFromNode = null;
-			//Message in the form: !@erraIP
 			msgFromNode = new String(datagramPacket.getData(), 0, datagramPacket.getLength());
 			if (msgFromNode == null || msgFromNode.length() == 0 || !msgFromNode.substring(0, 1).equalsIgnoreCase(ErraNodeVariables.MSG_SUBJECT_ALIVE)) {
-				System.err.println("Il messaggio del client che risponde di essere attivo e' vuoto o diverso da \'!\'");
+				princeErrorLog("Il messaggio del client che risponde di essere attivo e' vuoto o diverso da \'!\'");
 			} else {
 				String ipAddress = datagramPacket.getAddress().getHostAddress();
-				System.out.println("Subject " + ipAddress + " is alive!");
+				princeInfoLog("Subject " + ipAddress + " is alive!");
 				updateRegister(ipAddress, NodeState.NODE_STATE_ALIVE);
 			}
 		}
 	}	// NotifiedAliveNodeThread
 
-	private class InitializePrinceNodeThread extends Thread {
-
-		public InitializePrinceNodeThread() {
-			super();
-		}
-
-		@Override
-		public void run() {
-			super.run();
-			//			TimerTask task;
-			//			boolean ambassadorsAnswered = false;
-			if (princes.size() >= 1) {
-				while (true) {
-					//				task = new StopHandshakeTask();	// Qui uso la variabile handshake!!
-					//				timer.schedule(task, INITIALIZATION_PERIOD);
-					//				handshake = true;
-					try {
-						DatagramSocket datagramSocket = new DatagramSocket();
-						String msg = ErraNodeVariables.MSG_PRINCE_HANDSHAKE + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR;
-						DatagramPacket handshakePacket;
-						InetAddress currentPrinceAddress;
-						int currentHandshakeID = new Random().nextInt(1000);
-						Collection<ErraNode> princeCollection = princes.values();
-						Iterator<ErraNode> princesIterator = princeCollection.iterator();
-						System.out.println("I am sending my ambassadors around.");
-						while (princesIterator.hasNext()) {
-							msg += currentHandshakeID++;
-							byte[] buf = msg.getBytes();
-							currentPrinceAddress = InetAddress.getByName(((ErraNode)princesIterator.next()).getIPAddress());
-							handshakePacket = new DatagramPacket(buf, buf.length, currentPrinceAddress, ErraNodeVariables.PORT_PRINCE_FOREIGN_AMBASSADOR_LISTENER);
-							ambassadorDepartureTimes.put(currentHandshakeID, System.nanoTime());
-							datagramSocket.send(handshakePacket);
-						}
-						sleep(1000 * 2);	// wait some seconds...
-						if (ambassadorTripDuration.isEmpty()) {
-							System.out.println("No ambassador answered: the procedure will be repeated.");
-						} else {
-							long sumTripTime = 0;
-							for (Map.Entry<Integer, Long> entry : ambassadorTripDuration.entrySet()) {
-								sumTripTime += entry.getValue();
-								System.out.println("Summing time of ambassador: " + entry.getKey() + ".");
-							}
-							ErraNodeVariables.periodAskForALiveAgain = (sumTripTime / ambassadorTripDuration.size()) * 2;	// twice the mean value
-							ErraNodeVariables.periodAskForAlive = 2^(ErraNodeVariables.TIMES_TO_ASK_AGAIN) * ErraNodeVariables.periodAskForALiveAgain * 2;	// in totale chiedo 2^(TIMES_TO_ASK_AGAIN) - 1 volte. Raddoppio questo tempo.
-							System.out.println("Period ask for alive again set to: " + ErraNodeVariables.periodAskForALiveAgain + " milliseconds.");
-							System.out.println("Period ask for alive set to: " + ErraNodeVariables.periodAskForAlive + " milliseconds.");
-							datagramSocket.close();
-							System.out.println("Exit from initializing...");
-							break;
-						}
-						datagramSocket.close();
-					} catch (SocketException e) {
-						e.printStackTrace();
-					} catch (UnknownHostException e) {
-						e.printStackTrace();
-					} catch (IOException e) {
-						e.printStackTrace();
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
-				}
-				myAmbassadorReceiverSocket.close();
-			}
-			updatePrinceState(PrinceState.STATE_RUNNING);
-			System.out.println("I won't accept other ambassadors of mine any more.");
-		}
-	}	// InitializePrinceNodeThread
-
 	/*
 	 * ****************************************************************************
 	 * END THREADS
 	 */
+	
+	private boolean abdicate() {
+		while (currentState != PrinceState.STATE_RUNNING) {
+			
+		}
+		System.out.println("Shutting down this Prince Node...");
+		int princesNumber = princes.size();
+		int subjectsNumber = rollCallRegister.size();
+		int subjPerPrince = subjectsNumber / princesNumber;
+		int remainingSubs = subjectsNumber - subjPerPrince * princesNumber;
+		String[] mySubjectIPs = new String[subjectsNumber];
+		int subjectIndex = 0;
+		for (Map.Entry<String, NodeState> entry : rollCallRegister.entrySet()) {
+			mySubjectIPs[subjectIndex++] = entry.getKey();
+		}
+		String msg = ErraNodeVariables.MSG_PRINCE_SEND_IMMIGRANT + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR;
+		int princeIndex = 0;
+		subjectIndex = 0;
+		for (Map.Entry<String, ErraNode> entry : princes.entrySet()) {
+			ErraNode currentPrince = entry.getValue();
+			int howManySubs = subjPerPrince;
+			if (princeIndex < remainingSubs) {
+				howManySubs++;
+				princeIndex++;
+			}
+			for (int i = 0; i < howManySubs; i++) {
+				msg += mySubjectIPs[subjectIndex++] + ErraNodeVariables.DELIMITER_MSG_PARAMS;
+			}
+			msg = msg.substring(0, msg.length() - 1);	// remove last "#"
+			try {
+				Socket socket = new Socket(currentPrince.getIPAddress(), ErraNodeVariables.PORT_PRINCE_IMMIGRANT);
+				PrintStream toOtherPrince = new PrintStream(socket.getOutputStream());
+				toOtherPrince.println(msg);
+				socket.close();
+			} catch (UnknownHostException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		System.out.println("...Prince node shut down. Goodbye!");
+		return true;
+	}
 
 	private String getNodesMapToString() {
 		String mapToString = "";
@@ -674,7 +671,7 @@ public class PrinceNode extends NewErraClient
 		fileChooser.setCurrentDirectory(new File("~"));
 		int fileChooserOption = fileChooser.showOpenDialog(new JFrame());
 		if (fileChooserOption != JFileChooser.APPROVE_OPTION) {
-			System.out.println("You haven't selected any file, so I suppose you are the only prince!");
+			princeInfoLog("You haven't selected any file, so I suppose you are the only prince!");
 			//System.exit(0);
 		}
 		else
@@ -685,8 +682,7 @@ public class PrinceNode extends NewErraClient
 			try {
 				reader = new BufferedReader(new FileReader(princeAddressesFile));
 				String ipAddress = null;
-				while ((ipAddress = reader.readLine()) != null) 
-				{
+				while ((ipAddress = reader.readLine()) != null) {
 					if (validate(ipAddress) && !ipAddress.equalsIgnoreCase(me.getIPAddress())) {
 						ErraNode princeNode = new ErraNode(ipAddress, NodeType.NODE_TYPE_PRINCE, NodeState.NODE_STATE_ALIVE);
 						princeNode.setInMyCounty(false);
@@ -704,26 +700,63 @@ public class PrinceNode extends NewErraClient
 				e.printStackTrace();
 			} 
 		}
-		
+		findMyProtectorate();
 	}
-
-	//	TODO gestire uscita elegante del bootstrap
-	//	private boolean shutdown() {
-	//		while (currentState != BootstrapState.STATE_RUNNING) {
-	//		}
-	//		currentState = BootstrapState.STATE_SHUTTING_DOWN;
-	//		// TODO avverto gli altri principi (e gli altri sudditi)
-	//		System.out.println("...(closing operations)...");
-	//		return true;
-	//	}
-
-	private void initializePrinceNode() {
-		updatePrinceState(PrinceState.STATE_INITIALIZING);
-		System.out.println("Initializing Prince node...");
-		myAmbassadorListenerThread.start();
-		foreignAmbassadorListenerThread.start();
-		InitializePrinceNodeThread initializePrinceNodeThread = new InitializePrinceNodeThread();	// FIXME
-		initializePrinceNodeThread.start();
+	
+	private void findMyProtectorate() {
+		Set<String> princesSet = princes.keySet();
+		String[] princesArray = new String[princes.size()];
+		Iterator<String> iterator = princesSet.iterator();
+		int ind = 0;
+		while (iterator.hasNext()) {
+			princesArray[ind++] = iterator.next();
+		}
+		Arrays.sort(princesArray);
+		int index;
+		for (index = 0; index < princesArray.length; index++) {
+			if (princesArray[index].equalsIgnoreCase(me.getIPAddress())) {
+				break;
+			}
+		}
+		if (index == princesArray.length - 1) {
+			index = 0;
+		}
+		protectorate = princes.get(princesArray[index]);
+		System.out.println("Prot " + princesArray[index]);
+	}
+	
+	private void refreshRefugeeList() {
+		try {
+			Socket socket = new Socket(protectorate.getIPAddress(), ErraNodeVariables.PORT_PRINCE_PROTECTOR_LISTENER);
+			InputStreamReader inputStreamReader = new InputStreamReader(socket.getInputStream());
+			BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
+			PrintStream printStream = new PrintStream(socket.getOutputStream());
+			String sendMsg = ErraNodeVariables.MSG_PRINCE_REFUGEES_LIST_REQUEST;
+			printStream.println(sendMsg);
+			int counter = 3;
+			String receiveMsg = bufferedReader.readLine();
+			//TODO continua da qui
+//			while (counter > 0) {
+//				Thread.sleep(ErraNodeVariables.PERIOD_WAIT_FOR_REFUGEES);	//TODO
+//				
+//			}
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private void princeInfoLog(String messageToShow) {
+		if (ACTIVE_INFO_LOG) {
+			System.out.println(messageToShow);
+		}
+	}
+	
+	private void princeErrorLog(String messageToShow) {
+		if (ACTIVE_ERROR_LOG) {
+			System.err.println(messageToShow);
+		}
 	}
 
 	/*
@@ -737,14 +770,18 @@ public class PrinceNode extends NewErraClient
 
 	private synchronized ErraNode removeErraNode(String erraNodeIPAddress) {
 		rollCallRegister.remove(erraNodeIPAddress);
-		ErraNode removedNode = nodes.remove(erraNodeIPAddress);
-		showNetworkTable();
-		return removedNode;
+		if (!erraNodeIPAddress.equalsIgnoreCase(me.getIPAddress())) {	// against acking: I cannot remove myself
+			ErraNode removedNode = nodes.remove(erraNodeIPAddress);
+			showNetworkTable();
+			return removedNode;
+		} else {
+			return null;
+		}
 	}
 
 	private synchronized void updateRegister(String erraIPAddress, NodeState nodeState) {
 		rollCallRegister.put(erraIPAddress, nodeState);
-		nodes.get(erraIPAddress).setNodeState(nodeState);	// TODO problemi qui?
+		nodes.get(erraIPAddress).setNodeState(nodeState);
 	}
 
 	private synchronized void spreadNetworkChanges(ErraNode[] changedNodes, boolean added) {
