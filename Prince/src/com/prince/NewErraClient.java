@@ -25,16 +25,22 @@ import java.io.UnsupportedEncodingException;
 import java.net.ConnectException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.HttpURLConnection;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
 import java.security.acl.LastOwnerException;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
@@ -69,13 +75,13 @@ public class NewErraClient
 	public static boolean TO=false;
 	public static String BOOTSTRAP_ADDRESS="";
 	public static fileManager FM;
+	public static boolean writing=false;
 
-	
 	//DA RIMUOVERTE
-	
-	public static int tempN=0;
-	
-	
+
+	public static int pacchettiDaFare=1;
+
+
 	public static List<String> notifications;
 
 	public static GUI graphicInterface;
@@ -97,6 +103,7 @@ public class NewErraClient
 
 		private int getMinSN()
 		{
+			if(parts==null)return 0;
 			int min=0;
 			for (Iterator<filePart> i = parts.iterator(); i.hasNext();)
 			{
@@ -108,6 +115,7 @@ public class NewErraClient
 
 		private int getMaxSN()
 		{
+			if(parts==null)return 0;
 			int max=0;
 			for (Iterator<filePart> i = parts.iterator(); i.hasNext();)
 			{
@@ -171,73 +179,73 @@ public class NewErraClient
 			}
 
 			if (parts.size()==packets)
-			{
-				Collections.sort(parts);
-				OutputStream output = null;
-				try{
+			{	writing=true;
+			Collections.sort(parts);
+			OutputStream output = null;
+			try{
 
-					if (fileName.lastIndexOf("\\")!=-1)
+				if (fileName.lastIndexOf("\\")!=-1)
+				{
+					String FN=fileName.substring(fileName.lastIndexOf("\\"));
+					FN=FN.replace("\\", "");
+					output = new BufferedOutputStream(new FileOutputStream(FN));
+				}
+				else
+				{
+					File testFile = new File(System.getProperty("user.dir")+"/"+fileName);
+					if(testFile.exists())
+					{	int FileNumber =0;
+					while(true)
 					{
-						String FN=fileName.substring(fileName.lastIndexOf("\\"));
-						FN=FN.replace("\\", "");
-						output = new BufferedOutputStream(new FileOutputStream(FN));
+						Random random = new Random();
+						FileNumber= random.nextInt(2000);
+						File test = new File(System.getProperty("user.dir")+"/"+SN+fileName);
+						if(!test.exists())break;
+					}
+					output = new BufferedOutputStream(new FileOutputStream("("+SN+") "+fileName));
 					}
 					else
-					{
-						File testFile = new File(System.getProperty("user.dir")+"/"+fileName);
-						if(testFile.exists())
-						{	int FileNumber =0;
-						while(true)
-						{
-							Random random = new Random();
-							FileNumber= random.nextInt(2000);
-							File test = new File(System.getProperty("user.dir")+"/"+SN+fileName);
-							if(!test.exists())break;
-						}
-						output = new BufferedOutputStream(new FileOutputStream("("+SN+") "+fileName));
-						}
-						else
-							output = new BufferedOutputStream(new FileOutputStream(fileName));
-					}
+						output = new BufferedOutputStream(new FileOutputStream(fileName));
+				}
 
+				try
+				{
+					for (Iterator<filePart> i = parts.iterator(); i.hasNext();)
+					{
+						filePart f = (filePart)(i.next());
+						output.write(f.data);
+					}
+				}
+				finally
+				{	
+					writing=false;
+					String S="File "+fileName+", coming from "+sender+", has been correctly written.";
+					Date dNow = new Date( );
+					SimpleDateFormat ft =   new SimpleDateFormat ("hh:mm:ss");
+
+					notifications.add(ft.format(dNow).toString()+": "+ fileName+" received from "+sender);
+					if(graphicInterface!=null)
+						graphicInterface.update();
+					System.out.println(S);	
+					output.close();
+
+
+					Socket ACKSocket = new Socket();
 					try
 					{
-						for (Iterator<filePart> i = parts.iterator(); i.hasNext();)
-						{
-							filePart f = (filePart)(i.next());
-							output.write(f.data);
-						}
+						ACKSocket.connect(new InetSocketAddress(sender,ErraNodeVariables.TCP_FILERECEIVED),ErraNodeVariables.CONNECTION_TIMEOUT);
+						DataOutputStream streamToServer = new DataOutputStream(ACKSocket.getOutputStream());
+						streamToServer.writeBytes(getMyIP()+" has correctly received "+fileName + "!"+'\n');	
+						ACKSocket.close();
 					}
-					finally
-					{	
+					catch (IOException e)
+					{System.err.println("I haven't been able to notify the sender for the correct reception of file.");}
 
-						String S="File "+fileName+", coming from "+sender+", has been correctly written.";
-
-						Date dNow = new Date( );
-						SimpleDateFormat ft =   new SimpleDateFormat ("hh:mm:ss");
-
-						notifications.add(ft.format(dNow).toString()+": "+ fileName+" received from "+sender);
-						if(graphicInterface!=null)
-							graphicInterface.update();
-						System.out.println(S);	
-						output.close();
-
-						Socket ACKSocket = new Socket();
-						try
-						{
-							ACKSocket.connect(new InetSocketAddress(sender,ErraNodeVariables.TCP_FILERECEIVED),ErraNodeVariables.CONNECTION_TIMEOUT);
-							DataOutputStream streamToServer = new DataOutputStream(ACKSocket.getOutputStream());
-							streamToServer.writeBytes(getMyIP()+" has correctly received "+fileName + "!"+'\n');	
-							ACKSocket.close();
-						}
-						catch (IOException e)
-						{System.err.println("I haven't been able to notify the sender for the correct reception of file.");}
-
-					}
-					return true;
 				}
-				catch (IOException e)
-				{System.err.println("Error during the file generation.");}
+				return true;
+			}
+			catch (IOException e)
+			{System.err.println("Error during the file generation.");}
 			}
 			return false;
 		}	
@@ -291,8 +299,12 @@ public class NewErraClient
 			{
 				t=new file(filename,parts,sender,size);
 				esito=t.add(SN,packet);
-				fileList= new ArrayList<file>();
-				fileList.add(t);
+				if(!esito)
+				{
+					fileList= new ArrayList<file>();
+					fileList.add(t);
+				}
+
 			}
 			else
 			{
@@ -313,7 +325,7 @@ public class NewErraClient
 					fileList.add(t);
 				}
 			}
-			if (esito)
+			if (esito && fileList!=null)
 			{
 				fileList.remove(t);			//The add operation has completed the file, remove it!
 				if(fileList.size()==0)
@@ -322,9 +334,9 @@ public class NewErraClient
 					System.gc();
 				}
 				String S="Received file "+t.fileName+" from "+t.sender;
+				t=null;
+				System.gc();
 				JOptionPane.showMessageDialog(null, S, "File received", JOptionPane.INFORMATION_MESSAGE);
-				if(fileList!=null && fileList.size()==0)
-					fileList=null;
 			}
 		}
 
@@ -333,7 +345,6 @@ public class NewErraClient
 
 		public void showOldFiles()
 		{
-
 			if(fileList==null || fileList.size()==0)
 			{return;}
 
@@ -353,7 +364,7 @@ public class NewErraClient
 				double lastArrival=t.lastPacketReceived;
 				double now=System.currentTimeMillis();
 
-				if((now-lastArrival)>RTO)
+				if((now-lastArrival)>RTO && !writing)
 				{
 					toRemove=t;
 					break;
@@ -386,7 +397,7 @@ public class NewErraClient
 					}
 					catch (IOException e)
 					{System.err.println("The sender is not available anymore.");}
-
+					toRemove=null;
 				}
 			}
 		}
@@ -456,101 +467,107 @@ public class NewErraClient
 		}
 	}
 
-	public static boolean openBootstrapFile() throws IOException
+	public static boolean openBootstrapFile(String P) throws IOException
 	{	
 		boolean isConnected=false;
-
-		JFileChooser chooser = new JFileChooser("");				//Mostro una finestra per la scelta del file da inviare
-		chooser.setCurrentDirectory(new File("."));
-		chooser.setDialogTitle("Choose bootstrap list");
-		int r = chooser.showOpenDialog(new JFrame());
-
-		if (r == JFileChooser.APPROVE_OPTION) 
+		String path="";
+		if(P.equals(""))
 		{
-			String path=chooser.getSelectedFile().getPath();
-			File file = new File(path);
-			BufferedReader reader = null;
+			JFileChooser chooser = new JFileChooser("");				//Mostro una finestra per la scelta del file da inviare
+			chooser.setCurrentDirectory(new File("."));
+			chooser.setDialogTitle("Choose bootstrap list");
+			int r = chooser.showOpenDialog(new JFrame());
 
-			List<String> candidate = new ArrayList<String>();
-			try
+			if (r == JFileChooser.APPROVE_OPTION) 
 			{
-				reader = new BufferedReader(new FileReader(file));
-				String IP = null;
-				while ((IP = reader.readLine()) != null && validate(IP)) 
-				{
-					candidate.add(IP);
-				}
+				path=chooser.getSelectedFile().getPath();
 			}
-			catch (FileNotFoundException e) 
-			{e.printStackTrace();} 
-			catch (IOException e) 
-			{e.printStackTrace();} 
-			finally 
-			{
-				try {
-					if (reader != null) 
-					{
-						reader.close();
-					}
-				} catch (IOException t){} 
+		}
+		else
+			path=P;
 
+		File file = new File(path);
+		BufferedReader reader = null;
+
+		List<String> candidate = new ArrayList<String>();
+		try
+		{
+			reader = new BufferedReader(new FileReader(file));
+			String IP = null;
+			while ((IP = reader.readLine()) != null && validate(IP)) 
+			{
+				candidate.add(IP);
 			}
+		}
+		catch (FileNotFoundException e) 
+		{e.printStackTrace();} 
+		catch (IOException e) 
+		{e.printStackTrace();} 
+		finally 
+		{
+			try {
+				if (reader != null) 
+				{
+					reader.close();
+				}
+			} catch (IOException t){} 
 
-			while(!isConnected && candidate.size()>0)
+		}
+
+		while(!isConnected && candidate.size()>0)
+		{
+
+			if (candidate.size()>=5)
 			{
 
-				if (candidate.size()>=5)
-				{
-
-					Collections.shuffle(candidate);
-					String CandidateIP=candidate.get(0);
-					System.out.print("Connecting with "+CandidateIP+"...");
-					if(initializeErra(CandidateIP))
-					{return true;}
-					else
-					{
-						System.out.println("connection with "+CandidateIP+" has failed.");
-						candidate.remove(CandidateIP);
-					}
-				}
-				else if (candidate.size()==1)
-				{
-					String bestIP=candidate.get(0);
-					System.out.print("Connecting with "+bestIP+"...");
-					if(initializeErra(bestIP))
-					{return true;}
-					else
-					{
-						System.err.println("connection with "+bestIP+" has failed.");
-						return false;
-					}
-				}
+				Collections.shuffle(candidate);
+				String CandidateIP=candidate.get(0);
+				System.out.print("Connecting with "+CandidateIP+"...");
+				if(initializeErra(CandidateIP))
+				{return true;}
 				else
 				{
-					double minRTT=Double.MAX_VALUE;
-					String bestIP="";
-					for (Iterator<String> i = candidate.iterator(); i.hasNext();)
+					System.out.println("connection with "+CandidateIP+" has failed.");
+					candidate.remove(CandidateIP);
+				}
+			}
+			else if (candidate.size()==1)
+			{
+				String bestIP=candidate.get(0);
+				System.out.print("Connecting with "+bestIP+"...");
+				if(initializeErra(bestIP))
+				{return true;}
+				else
+				{
+					System.err.println("connection with "+bestIP+" has failed.");
+					return false;
+				}
+			}
+			else
+			{
+				double minRTT=Double.MAX_VALUE;
+				String bestIP="";
+				for (Iterator<String> i = candidate.iterator(); i.hasNext();)
+				{
+					String candidateIP=(String)(i.next());
+					double RTT=measureRTT(candidateIP);
+					if (RTT<minRTT && RTT!=0.0)
 					{
-						String candidateIP=(String)(i.next());
-						double RTT=measureRTT(candidateIP);
-						if (RTT<minRTT && RTT!=0.0)
-						{
-							bestIP=candidateIP;
-							minRTT=RTT;
-						}
+						bestIP=candidateIP;
+						minRTT=RTT;
 					}
+				}
 
-					if(bestIP.equals(""))
-						return false;
+				if(bestIP.equals(""))
+					return false;
 
-					System.out.print("Connecting with "+bestIP+" (RTT="+minRTT+")...");
-					if(initializeErra(bestIP))
-					{return true;}
-					else
-					{
-						System.err.println("connection with "+bestIP+" has failed.");
-						candidate.remove(bestIP);
-					}
+				System.out.print("Connecting with "+bestIP+" (RTT="+minRTT+")...");
+				if(initializeErra(bestIP))
+				{return true;}
+				else
+				{
+					System.err.println("connection with "+bestIP+" has failed.");
+					candidate.remove(bestIP);
 				}
 			}
 		}
@@ -594,7 +611,7 @@ public class NewErraClient
 	{
 		try 
 		{
-			FileWriter fout = new FileWriter(ErraNodeVariables.logFilename, true);
+			FileWriter fout = new FileWriter("["+pacchettiDaFare+"]"+ErraNodeVariables.logFilename, true);
 			fout.write(data+'\n');
 			fout.close();
 
@@ -843,8 +860,8 @@ public class NewErraClient
 				byte[] content = new byte[2048];  
 				int bytesRead = -1;  
 				while((bytesRead = inputStream.read(content))!= -1) 
-				{  
-					baos.write( content, 0, bytesRead);  
+				{  	
+					baos.write(content, 0, bytesRead);
 				} 
 
 				byte[] packet=baos.toByteArray();
@@ -884,6 +901,7 @@ public class NewErraClient
 					byte[] data=new byte[packet.length-12-hL];
 					System.arraycopy(packet, 12+hL, data, 0, data.length);
 					FM.add(headerIntero,data);								//Ficco dentro questo frammento all'interno della classe che si occupa di gestire il tutto
+					data=null;
 				}
 				else
 				{
@@ -996,7 +1014,6 @@ public class NewErraClient
 			ErraNode currentNode = entry.getValue();
 			System.out.println(currentNode.getIPAddress());
 		}
-
 		graphicInterface.update();
 	}
 
@@ -1006,7 +1023,7 @@ public class NewErraClient
 		if((int)file.length()==0)
 			return null;
 
-		int packets=nodes.size()-2;	
+		int packets=1;	
 
 		if (nodes.size()<=3)
 			packets=1;
@@ -1018,14 +1035,8 @@ public class NewErraClient
 		while((int)file.length()/packets>ErraNodeVariables.MAX_PAYLOAD)
 			packets++;	
 
-		
-
-		
-		packets=1;
-		
-		/*
-		 * boolean valid=false;
-		 * while(!(valid))
+		boolean valid=false;
+		while(!(valid))
 		{
 			String p= JOptionPane.showInputDialog("Number of packet to split the file in: ",packets);
 			int N=Integer.parseInt(p);
@@ -1034,7 +1045,7 @@ public class NewErraClient
 				valid=true;
 				packets=N;
 			}
-		}*/
+		}
 
 
 		int packets_length=(int)file.length()/packets;
@@ -1205,7 +1216,7 @@ public class NewErraClient
 		}
 
 		int i=1;
-		
+
 		long startTime = System.currentTimeMillis();
 		Date date = new Date();
 		SimpleDateFormat ft = new SimpleDateFormat ("hh:mm:ss");
@@ -1227,7 +1238,7 @@ public class NewErraClient
 			{	
 				TCPClientSocket = new Socket();
 
-				
+
 
 				TCPClientSocket.connect(new InetSocketAddress(nextIP,ErraNodeVariables.PORT_SUBJECT_FILE_FORWARDING),ErraNodeVariables.CONNECTION_TIMEOUT);
 				OutputStream out = TCPClientSocket.getOutputStream(); 
@@ -1237,14 +1248,14 @@ public class NewErraClient
 				if(ErraNodeVariables.verbose)System.out.println("finished.");
 				i++;
 				sendOK=true;
-				
+
 			}
 			catch (IOException e)
 			{	
 				if(ErraNodeVariables.verbose) System.err.print("packet "+i+" has not been sent to the next hop ["+nextIP+"]");	
 			}
-			
-			
+
+
 
 			if (!(sendOK))
 			{
@@ -1293,11 +1304,11 @@ public class NewErraClient
 				}
 			}
 		}
-		
+
 		long stopTime = System.currentTimeMillis();
 		long elapsedTime = stopTime - startTime;
 		log(path+'\t'+Departure+'\t'+elapsedTime);	
-		
+
 		System.out.println("File processing completed");
 		return;
 	}
@@ -1436,9 +1447,9 @@ public class NewErraClient
 							{
 								try {
 									send(file.getAbsolutePath(),fileName);
-									
+
 									//A sto punto sposto il file tra quelli inviati!
-									
+
 									File sentFilesDirectory=new File(directoryName+"/sent/");
 									if(!sentFilesDirectory.exists())
 									{
@@ -1447,21 +1458,21 @@ public class NewErraClient
 									File bfile=new File(directoryName+"/sent/"+fileName);
 									FileInputStream inStream = new FileInputStream(file);
 									FileOutputStream outStream = new FileOutputStream(bfile);
-									
+
 									byte[] buffer = new byte[1024];
-						    	    int length;
-						    	    //copy the file content in bytes 
-						    	    while ((length = inStream.read(buffer)) > 0){
-						 
-						    	    	outStream.write(buffer, 0, length);
-						 
-						    	    }
-						 
-						    	    inStream.close();
-						    	    outStream.close();
-						 
-						    	    //delete the original file
-						    	    file.delete();
+									int length;
+									//copy the file content in bytes 
+									while ((length = inStream.read(buffer)) > 0){
+
+										outStream.write(buffer, 0, length);
+
+									}
+
+									inStream.close();
+									outStream.close();
+
+									//delete the original file
+									file.delete();
 
 								} catch (UnsupportedEncodingException e) 
 								{
@@ -1490,9 +1501,38 @@ public class NewErraClient
 		}	
 	}
 
+	public static boolean addIpOnline(String IP) throws IOException
+	{
+		String query="http://win.tcmarcon.it/princeRegistrar/default.aspx?IP=A"+IP;
+
+		URL url = new URL(query);
+		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+		if( conn.getResponseCode() == HttpURLConnection.HTTP_OK )
+		{
+			return true;
+		}else
+		{
+			return false;
+		}
+	}
+
+	public static boolean removeIpOnline(String IP) throws IOException
+	{
+		String query="http://win.tcmarcon.it/princeRegistrar/default.aspx?IP=R"+IP;
+
+		URL url = new URL(query);
+		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+		if( conn.getResponseCode() == HttpURLConnection.HTTP_OK )
+		{
+			return true;
+		}else
+		{
+			return false;
+		}
+	}
+
 	public static void main(String[] args) throws InterruptedException, IOException
 	{	
-		
 
 		ErraNodeVariables.parseConfigFile();
 		notifications=new LinkedList<String>();
@@ -1512,14 +1552,24 @@ public class NewErraClient
 		else
 		{
 			String p="";
-			p= JOptionPane.showInputDialog("Choose the IP of the bootstrap to connect with \nLeave this field blank for choosing a file");
-			if (!(p==null)&&validate(p))
+			p= JOptionPane.showInputDialog("Choose the IP of the bootstrap to connect with \nLeave this field blank for choosing a file\nType www to get the file from the web");
+			if (!(p==null)&&!p.equals("www")&&validate(p))
 			{
 				esito=initializeErra(p);
 			}
+			else if (!(p==null)&&p.equals("www"))
+			{
+				//Scarico il file da internet
+				URL website = new URL("http://win.tcmarcon.it/public/nodiAttivi.txt");
+				ReadableByteChannel rbc = Channels.newChannel(website.openStream());
+				FileOutputStream fos = new FileOutputStream("activeNodes.txt");
+				fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
+				JOptionPane.showMessageDialog(null, "The updated bootstrap list has been saved in activeNodes.txt", "List updated", JOptionPane.INFORMATION_MESSAGE);
+				esito=openBootstrapFile("activeNodes.txt");
+			}
 			else
 			{
-				esito=openBootstrapFile();
+				esito=openBootstrapFile("");
 			}
 		}
 
@@ -1538,7 +1588,7 @@ public class NewErraClient
 
 		scanAndSend A=new scanAndSend();
 		A.start();
-		
+
 		answerAliveRequest imAlive=new answerAliveRequest();
 		imAlive.start();
 
@@ -1585,14 +1635,9 @@ public class NewErraClient
 			}
 			if (input.toUpperCase().equals("S"))
 			{
+
 				if (!(TO))
-					
-					for(int j=0;j<50;j++)
-					{
-						send("cento.dat","192.168.0.2");
-						Thread.sleep(12000);
-					}
-					
+					send("","");				
 				else
 				{System.err.println("This host is not allowed to send files because it has been thrashed out! Restart the program and join the ERRA network again.");}
 			}

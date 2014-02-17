@@ -1,6 +1,0 @@
-cento.dat	02:30:46	1696
-cento.dat	02:30:57	1555
-cento.dat	02:32:01	1704
-cento.dat	02:32:15	1494
-cento.dat	02:32:29	1550
-cento.dat	02:32:43	1704
