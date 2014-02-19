@@ -77,10 +77,7 @@ public class NewErraClient
 	public static fileManager FM;
 	public static boolean writing=false;
 
-	//DA RIMUOVERTE
-
-	public static int pacchettiDaFare=1;
-
+	public static Map<String, ErraNode> nodes;
 
 	public static List<String> notifications;
 
@@ -404,7 +401,7 @@ public class NewErraClient
 
 	}
 
-	public static Map<String, ErraNode> nodes;
+	
 
 	public static boolean initializeErra(String address)
 	{
@@ -611,7 +608,7 @@ public class NewErraClient
 	{
 		try 
 		{
-			FileWriter fout = new FileWriter("["+pacchettiDaFare+"]"+ErraNodeVariables.logFilename, true);
+			FileWriter fout = new FileWriter(ErraNodeVariables.logFilename, true);
 			fout.write(data+'\n');
 			fout.close();
 
@@ -1560,12 +1557,20 @@ public class NewErraClient
 			else if (!(p==null)&&p.equals("www"))
 			{
 				//Scarico il file da internet
-				URL website = new URL("http://win.tcmarcon.it/public/nodiAttivi.txt");
-				ReadableByteChannel rbc = Channels.newChannel(website.openStream());
-				FileOutputStream fos = new FileOutputStream("activeNodes.txt");
-				fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
-				JOptionPane.showMessageDialog(null, "The updated bootstrap list has been saved in activeNodes.txt", "List updated", JOptionPane.INFORMATION_MESSAGE);
-				esito=openBootstrapFile("activeNodes.txt");
+				try
+				{
+					URL website = new URL("http://win.tcmarcon.it/public/nodiAttivi.txt");
+					ReadableByteChannel rbc = Channels.newChannel(website.openStream());
+					FileOutputStream fos = new FileOutputStream("activeNodes.txt");
+					fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
+					JOptionPane.showMessageDialog(null, "The updated bootstrap list has been saved in activeNodes.txt", "List updated", JOptionPane.INFORMATION_MESSAGE);
+					esito=openBootstrapFile("activeNodes.txt");
+				}
+				catch (IOException e)
+				{
+					System.err.println("Error while retrieving the updated list");
+				}
+				
 			}
 			else
 			{
