@@ -2,6 +2,7 @@ package com.prince;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.Point;
@@ -10,7 +11,6 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
-import java.lang.Character.Subset;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,6 +23,8 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.WindowConstants;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableCellRenderer;
+import javax.swing.table.TableModel;
 
 import com.prince.ErraNode.NodeState;
 import com.prince.ErraNode.NodeType;
@@ -41,8 +43,8 @@ public class PrinceGUI extends JFrame implements ActionListener {
 	private static final int POINT_Y = 200;
 	private static final int OVERVIEW_TABLE_WIDTH = 500;
 	private static final int OVERVIEW_TABLE_HEIGTH = 300;
-	private static final int NODE_INFO_TABLE_WIDTH = 300;
-	private static final int NODE_INFO_TABLE_HEIGTH = 100;
+	private static final int NODE_INFO_TABLE_WIDTH = 450;
+	private static final int NODE_INFO_TABLE_HEIGTH = 70;
 
 	private static final String STRING_UNKNOWN = "unknown";
 	private static final String NO_OWNER = "no owner";
@@ -92,7 +94,7 @@ public class PrinceGUI extends JFrame implements ActionListener {
 	private JPanel pnlCenter;
 	private JPanel nodeInfoPanel;
 	private JPanel genericInfoPanel;
-	private JTable tbNodeInfo;
+	private PrinceTable tbNodeInfo;
 	private JScrollPane scrollPaneNodeInfo;
 	private JLabel status;
 	
@@ -108,7 +110,7 @@ public class PrinceGUI extends JFrame implements ActionListener {
 		focusedNode = null;
 		
 		// Frame options
-//		setResizable(false);
+		setResizable(false);
 		setLocation(new Point(POINT_X, POINT_Y));
 		setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);	// FIXME non bene chiudere il programma all'uscita!
 		
@@ -160,9 +162,10 @@ public class PrinceGUI extends JFrame implements ActionListener {
 		nodeInfoPanel.setBackground(Color.YELLOW);
 		genericInfoPanel = new JPanel();
 		genericInfoPanel.setBackground(Color.CYAN);
-		tbNodeInfo = new JTable();
-		tbNodeInfo.setModel(new PrinceTableModel(nodeData, fieldName));
-//		tbNodeInfo.setPreferredScrollableViewportSize(new Dimension(NODE_INFO_TABLE_WIDTH, NODE_INFO_TABLE_HEIGTH));
+		tbNodeInfo = new PrinceTable(new PrinceTableModel(nodeData, fieldName));
+		tbNodeInfo.setRowColor(0, Color.YELLOW);
+//		tbNodeInfo.setModel(new PrinceTableModel(nodeData, fieldName));
+		tbNodeInfo.setPreferredScrollableViewportSize(new Dimension(NODE_INFO_TABLE_WIDTH, NODE_INFO_TABLE_HEIGTH));
 		tbNodeInfo.setFillsViewportHeight(true);
 		scrollPaneNodeInfo = new JScrollPane(tbNodeInfo);
 		nodeInfoPanel.add(scrollPaneNodeInfo);
@@ -355,6 +358,51 @@ public class PrinceGUI extends JFrame implements ActionListener {
 		}
 	}
 	
+	private class PrinceTable extends JTable {
+		Map<Integer, Color> rowColor = new HashMap<Integer, Color>();
+
+	     public PrinceTable(TableModel model) {
+	          super(model);
+	     }
+
+	     @Override
+	     public Component prepareRenderer(TableCellRenderer renderer, int row, int column)
+	     {
+	          Component c = super.prepareRenderer(renderer, row, column);
+
+	          if (!isRowSelected(row))
+	          {
+	               Color color = rowColor.get( row );
+	               c.setBackground(color == null ? getBackground() : color);
+	          }
+
+	          return c;
+	     }
+
+	     public void setRowColor(int row, Color color)
+	     {
+	          rowColor.put(row, color);
+	     }
+
+//	     public static void main(String[] args)
+//	     {
+//	          DefaultTableModel model = new DefaultTableModel(10, 4);
+//	          RowTable table = new RowTable( model );
+//	          table.setPreferredScrollableViewportSize(table.getPreferredSize());
+//
+//	          table.setRowColor(1, Color.YELLOW);
+//	          table.setRowColor(2, Color.RED);
+//	          table.setRowColor(3, Color.ORANGE);
+//
+//	          JFrame frame = new JFrame();
+//	          frame.setDefaultCloseOperation( JFrame.EXIT_ON_CLOSE );
+//	          frame.add( new JScrollPane( table ) );
+//	          frame.pack();
+//	          frame.setLocationRelativeTo( null );
+//	          frame.setVisible(true);
+//	     }
+	}
+	
 	private class PrinceMouseAdapter extends MouseAdapter {
 
 		@Override
@@ -415,4 +463,55 @@ public class PrinceGUI extends JFrame implements ActionListener {
 //			System.out.println("Mouse moved!");
 		}
 	}
+	
+	/*
+	 * 
+	 * static class MyTableModel extends DefaultTableModel {
+
+    List<Color> rowColours = Arrays.asList(
+        Color.RED,
+        Color.GREEN,
+        Color.CYAN
+    );
+
+    public void setRowColour(int row, Color c) {
+        rowColours.set(row, c);
+        fireTableRowsUpdated(row, row);
+    }
+
+    public Color getRowColour(int row) {
+        return rowColours.get(row);
+    }
+
+    @Override
+    public int getRowCount() {
+        return 3;
+    }
+
+    @Override
+    public int getColumnCount() {
+        return 3;
+    }
+
+    @Override
+    public Object getValueAt(int row, int column) {
+        return String.format("%d %d", row, column);
+    }
+}
+
+
+static class MyTableCellRenderer extends DefaultTableCellRenderer {
+
+    @Override
+    public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+        MyTableModel model = (MyTableModel) table.getModel();
+        Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+        c.setBackground(model.getRowColour(row));
+        return c;
+    }
+}
+
+
+model.setRowColour(1, Color.YELLOW);
+	 */
 }
