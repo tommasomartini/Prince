@@ -700,10 +700,10 @@ public class PrinceNode extends NewErraClient {
 				e.printStackTrace();
 			} 
 		}
-		findMyProtectorate();
+//		findMyProtectorate();	// FIXME activate me!!!
 	}
 	
-	private void findMyProtectorate() {
+	private void findMyProtectorate() {	// TODO aggiungere me stesso alla lista dei principi
 		Set<String> princesSet = princes.keySet();
 		String[] princesArray = new String[princes.size()];
 		Iterator<String> iterator = princesSet.iterator();
