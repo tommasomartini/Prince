@@ -41,7 +41,7 @@ public class PrinceNode extends NewErraClient {
 	private static final String PASSWORD = "erra";
 	
 	//	States
-	private enum PrinceState {
+	public enum PrinceState {
 		STATE_RUNNING,
 		STATE_ROLL_CALLING,
 		STATE_SPREADING_CHANGES,
