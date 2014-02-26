@@ -37,17 +37,17 @@ public class PrinceGUI extends JFrame implements ActionListener {
 	 */
 	private static final long serialVersionUID = 1693846911440567274L;
 	
+	private static final Color myColor = new Color(238, 223, 249);
+	private static final Color missingColor = new Color(186, 179, 253);
+	
 	private static final String IP = "10.10.10.10";
 	
-	private static final int POINT_X = 200;
-	private static final int POINT_Y = 200;
+	private static final int POINT_X = 150;
+	private static final int POINT_Y = 150;
 	private static final int OVERVIEW_TABLE_WIDTH = 500;
-	private static final int OVERVIEW_TABLE_HEIGTH = 300;
+	private static final int OVERVIEW_TABLE_HEIGTH = 100;
 	private static final int NODE_INFO_TABLE_WIDTH = 450;
-	private static final int NODE_INFO_TABLE_HEIGTH = 70;
-
-	private static final String STRING_UNKNOWN = "unknown";
-	private static final String NO_OWNER = "no owner";
+	private static final int NODE_INFO_TABLE_HEIGTH = 96;
 	
 	private String[] columnNamesOverview = {
 			"IP address",
@@ -57,9 +57,11 @@ public class PrinceGUI extends JFrame implements ActionListener {
 	
 	private String[] columnNamesInfoNode = {
 			"IP address",
+			"Node Type",
 			"Prince owner",
 			"State",
-			"Timestamp in"
+			"Day",
+			"Time"
 	};
 	
 	private String[] fieldName = {
@@ -67,11 +69,14 @@ public class PrinceGUI extends JFrame implements ActionListener {
 		"Value"
 	};
 	
-	private SimpleDateFormat simpleDateFormat;
+	private SimpleDateFormat simpleDateFormatDay;
+	private SimpleDateFormat simpleDateFormatTime;
 	private Map<String, ErraNode> nodes;
+	private Map<String, Integer> ipToRowTable;
 	private String[][] overviewData;
 	private String[][] nodeData;
 	private String myIPAddress;
+	private ErraNode relatedPrince;
 	private ErraNode focusedNode;
 	private PrinceState currentState;
 
@@ -81,7 +86,8 @@ public class PrinceGUI extends JFrame implements ActionListener {
 	private JPanel panel;
 	
 	// North panel
-	private JTable table;
+	private JPanel pnlNorth;
+	private PrinceTable table;
 	private JScrollPane scrollPaneOverviewTable;
 	
 	// East panel
@@ -94,61 +100,68 @@ public class PrinceGUI extends JFrame implements ActionListener {
 	private JPanel pnlCenter;
 	private JPanel nodeInfoPanel;
 	private JPanel genericInfoPanel;
-	private PrinceTable tbNodeInfo;
+	private JTable tbNodeInfo;
 	private JScrollPane scrollPaneNodeInfo;
-	private JLabel status;
+	private JLabel lbStatus;
+	private JLabel lbMessage;
 	
-	public static void main(String[] args) {
-		PrinceGUI princeGUI = new PrinceGUI(generateNodes(), IP);
-	}
+//	public static void main(String[] args) {
+//		PrinceGUI princeGUI = new PrinceGUI(generateNodes(), IP);
+//	}
 
 	public PrinceGUI(Map<String, ErraNode> newNodes, String myIP) {
 		super("Erra Prince: " + myIP);
 		nodes = newNodes;
 		myIPAddress = myIP;
-		simpleDateFormat = new SimpleDateFormat("HH:mm:ss.SSSS yyyy-MM-dd");
+		simpleDateFormatDay = new SimpleDateFormat("yyyy-MM-dd");
+		simpleDateFormatTime = new SimpleDateFormat("HH:mm:ss");
 		focusedNode = null;
 		
 		// Frame options
 		setResizable(false);
 		setLocation(new Point(POINT_X, POINT_Y));
-		setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);	// FIXME non bene chiudere il programma all'uscita!
+		setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);	// FIXME mettere do nothing on close
 		
-		generateOverviewData();	
 		nodeData = new String[columnNamesInfoNode.length][2];
 		nodeData[0][0] = columnNamesInfoNode[0];
 		nodeData[1][0] = columnNamesInfoNode[1];
 		nodeData[2][0] = columnNamesInfoNode[2];
 		nodeData[3][0] = columnNamesInfoNode[3];
+		nodeData[4][0] = columnNamesInfoNode[4];
+		nodeData[5][0] = columnNamesInfoNode[5];
 		nodeData[0][1] = "-";
 		nodeData[1][1] = "-";
 		nodeData[2][1] = "-";
 		nodeData[3][1] = "-";
+		nodeData[4][1] = "-";
+		nodeData[5][1] = "-";
 		
 		/********************************************************************************
 		 * Graphics
 		 */
 		panel = new JPanel(new BorderLayout());
 		
-		// North panel		
-		table = new JTable();
+		// North panel	
+		pnlNorth = new JPanel();
+		pnlNorth.setBackground(myColor);
+		table = new PrinceTable(new PrinceTableModel(overviewData, columnNamesOverview));
 		table.addMouseListener(new PrinceMouseAdapter());
-		table.setModel(new PrinceTableModel(overviewData, columnNamesOverview));
 		table.setPreferredScrollableViewportSize(new Dimension(OVERVIEW_TABLE_WIDTH, OVERVIEW_TABLE_HEIGTH));
 		table.setFillsViewportHeight(true);
-//		table.setBackground(Color.BLACK);
+		table.setBackground(myColor);
 		scrollPaneOverviewTable = new JScrollPane(table);
-		panel.add(scrollPaneOverviewTable, BorderLayout.NORTH);
+		pnlNorth.add(scrollPaneOverviewTable);
+		panel.add(pnlNorth, BorderLayout.NORTH);
 		
 		// East panel
 		pnlEast = new JPanel(new GridLayout(3, 1));
-		bt1 = new JButton("A");
+		bt1 = new JButton("Send");
 		bt1.setActionCommand("cmd1");
 		bt1.addActionListener(this);
-		bt2 = new JButton("B");
+		bt2 = new JButton("Roll Call");
 		bt2.setActionCommand("cmd2");
 		bt2.addActionListener(this);
-		bt3 = new JButton("C");
+		bt3 = new JButton("Shutdown");
 		bt3.setActionCommand("cmd3");
 		bt3.addActionListener(this);
 		pnlEast.add(bt1);
@@ -158,13 +171,16 @@ public class PrinceGUI extends JFrame implements ActionListener {
 		
 		// Center panel
 		pnlCenter = new JPanel(new GridLayout(2, 1));
+		lbStatus = new JLabel("No status");
+		lbMessage = new JLabel("No message");
 		nodeInfoPanel = new JPanel();
-		nodeInfoPanel.setBackground(Color.YELLOW);
-		genericInfoPanel = new JPanel();
-		genericInfoPanel.setBackground(Color.CYAN);
-		tbNodeInfo = new PrinceTable(new PrinceTableModel(nodeData, fieldName));
-		tbNodeInfo.setRowColor(0, Color.YELLOW);
-//		tbNodeInfo.setModel(new PrinceTableModel(nodeData, fieldName));
+		nodeInfoPanel.setBackground(myColor);
+		genericInfoPanel = new JPanel(new GridLayout(2, 1));
+		genericInfoPanel.setBackground(myColor);
+		genericInfoPanel.add(lbStatus);
+		genericInfoPanel.add(lbMessage);
+		tbNodeInfo = new JTable();
+		tbNodeInfo.setModel(new PrinceTableModel(nodeData, fieldName));
 		tbNodeInfo.setPreferredScrollableViewportSize(new Dimension(NODE_INFO_TABLE_WIDTH, NODE_INFO_TABLE_HEIGTH));
 		tbNodeInfo.setFillsViewportHeight(true);
 		scrollPaneNodeInfo = new JScrollPane(tbNodeInfo);
@@ -176,43 +192,74 @@ public class PrinceGUI extends JFrame implements ActionListener {
 		setContentPane(panel);
 		pack();
 		setVisible(true);
+		//***********************************************************
+//		updateTable(nodes);
 	}
 	
 	public void updateTable(Map<String, ErraNode> newNodes) {
 		nodes = newNodes;
 		generateOverviewData();
 		table.setModel(new PrinceTableModel(overviewData, columnNamesOverview));
+		for (Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
+			ErraNode erraNode = entry.getValue();
+			switch (erraNode.getNodeState()) {
+			case NODE_STATE_ALIVE:
+//				table.setRowColor(ipToRowTable.get(erraNode.getIPAddress()), Color.GREEN);
+				break;
+			case NODE_STATE_DEAD:
+//				table.setRowColor(ipToRowTable.get(erraNode.getIPAddress()), Color.RED);
+				break;
+			case NODE_STATE_MISSING:
+				table.setRowColor(ipToRowTable.get(erraNode.getIPAddress()), missingColor);
+				break;
+			default:
+				break;
+			}
+		}
+		pnlNorth.validate();
+		pnlNorth.repaint();
 	}
 	
 	public void updateState(PrinceState newState) {
 		currentState = newState;
 		switch (currentState) {
 		case STATE_RUNNING:
-			genericInfoPanel.add(new JLabel("Running"));
+			lbStatus.setText("Running");
 			break;
 		case STATE_INITIALIZING:
-			genericInfoPanel.add(new JLabel("Initializing"));
+			lbStatus.setText("Initializing");
 			break;
 		case STATE_ROLL_CALLING:
-			genericInfoPanel.add(new JLabel("Roll calling"));
+			lbStatus.setText("Roll calling");
 			break;
 		case STATE_SHUTTING_DOWN:
-			genericInfoPanel.add(new JLabel("Shutting down"));
+			lbStatus.setText("Shutting down");
 			break;
 		case STATE_SPREADING_CHANGES:
-			genericInfoPanel.add(new JLabel("Spreading changes"));
+			lbStatus.setText("Spreading changes");
 			break;
 		default:
-			genericInfoPanel.add(new JLabel("Unknown"));
+			lbStatus.setText("Unknown");
 			break;
 		}
+		genericInfoPanel.validate();
+		genericInfoPanel.repaint();
+	}
+	
+	public void updateMessage(String msg) {
+		lbMessage.setText(msg);
+		genericInfoPanel.validate();
+		genericInfoPanel.repaint();
+		
 	}
 
 	private void generateOverviewData() {
 		overviewData = new String[nodes.size()][columnNamesOverview.length];	// FIXME in nodes ci sono anche io???
+		ipToRowTable = new HashMap<String, Integer>();
 		int rowIndex = 0;
 		for(Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
 			ErraNode currentNode = entry.getValue();
+			ipToRowTable.put(currentNode.getIPAddress(), rowIndex);
 			switch (currentNode.getNodeState()) {
 			case NODE_STATE_ALIVE:
 				overviewData[rowIndex][2] = "Alive";
@@ -228,31 +275,40 @@ public class PrinceGUI extends JFrame implements ActionListener {
 				break;
 			}
 			if (currentNode.getIPAddress() == myIPAddress) {
-				overviewData[rowIndex][0] = currentNode.getIPAddress();
-				overviewData[rowIndex][1] = "---";
+				overviewData[rowIndex][0] = currentNode.getIPAddress() + " (P)";
+				overviewData[rowIndex][1] = "no owner";
 			} else {
 				switch (currentNode.getNodeType()) {
 				case NODE_TYPE_PRINCE:
-					overviewData[rowIndex][0] = currentNode.getIPAddress();
+					overviewData[rowIndex][0] = currentNode.getIPAddress() + " (P)";
+					overviewData[rowIndex][1] = "no owner";
 					break;
 				case NODE_TYPE_SUBJECT:
-					overviewData[rowIndex][0] = currentNode.getIPAddress();		
+					overviewData[rowIndex][0] = currentNode.getIPAddress() + " (S)";		
+					if (currentNode.isInMyCounty()) {
+						overviewData[rowIndex][1] = "Me";
+					} else {
+						if (currentNode.getBootstrapOwner() == null) {
+							overviewData[rowIndex][1] = "Unknown";
+						} else {
+							overviewData[rowIndex][1] = currentNode.getBootstrapOwner().getIPAddress();
+						}
+					}
 					break;
 				case UNKNOWN:
-					overviewData[rowIndex][0] = currentNode.getIPAddress();
+					overviewData[rowIndex][0] = currentNode.getIPAddress() + " (unknown)";
+					if (currentNode.isInMyCounty()) {
+						overviewData[rowIndex][1] = "Me";
+					} else {
+						if (currentNode.getBootstrapOwner() == null) {
+							overviewData[rowIndex][1] = "Unknown";
+						} else {
+							overviewData[rowIndex][1] = currentNode.getBootstrapOwner().getIPAddress();
+						}
+					}
 					break;
 				default:
 					break;
-				}
-				if (currentNode.isInMyCounty()) {
-					overviewData[rowIndex][1] = "Me";
-				} else {
-					overviewData[rowIndex][1] = "No";
-					if (currentNode.getBootstrapOwner() == null) {
-						overviewData[rowIndex][1] = STRING_UNKNOWN;
-					} else {
-						overviewData[rowIndex][1] = currentNode.getBootstrapOwner().getIPAddress();
-					}
 				}
 			}
 			rowIndex++;
@@ -261,44 +317,47 @@ public class PrinceGUI extends JFrame implements ActionListener {
 	
 	private void generateNodeInfoData(String nodeAddress) {
 		ErraNode node = nodes.get(nodeAddress);
-
+		nodeData[0][1] = node.getIPAddress();
 		switch (node.getNodeType()) {
 		case NODE_TYPE_PRINCE:
-			nodeData[0][1] = node.getIPAddress() + " (P)";
+			nodeData[1][1] = "Prince";
+			nodeData[2][1] = "No owner";
 			break;
 		case NODE_TYPE_SUBJECT:
-			nodeData[0][1] = node.getIPAddress() + " (S)";
+			nodeData[1][1] = "Subject";
+			if (node.getBootstrapOwner() == null) {
+				nodeData[2][1] = "unknown";
+			} else {
+				nodeData[2][1] = node.getBootstrapOwner().getIPAddress();
+			}
 			break;
 		case UNKNOWN:
-			nodeData[0][1] = node.getIPAddress() + " (unknown type)";
+			nodeData[1][1] = "Unknown type";
+			if (node.getBootstrapOwner() == null) {
+				nodeData[2][1] = "unknown";
+			} else {
+				nodeData[2][1] = node.getBootstrapOwner().getIPAddress();
+			}
 			break;
 		default:
 			break;
-		}
-		if (nodeAddress.equalsIgnoreCase(myIPAddress)) {
-			nodeData[1][1] = "---";
-		} else {
-			if (node.getBootstrapOwner() == null) {
-				nodeData[1][1] = "unknown";
-			} else {
-				nodeData[1][1] = node.getBootstrapOwner().getIPAddress();
-			}
 		}
 		switch (node.getNodeState()) {
 		case NODE_STATE_ALIVE:
-			overviewData[2][1] = "Alive";
+			nodeData[3][1] = "Alive";
 			break;	
 		case NODE_STATE_DEAD:
-			overviewData[2][1] = "Dead";
+			nodeData[3][1] = "Dead";
 			break;
 		case NODE_STATE_MISSING:
-			overviewData[2][1] = "Missing";
+			nodeData[3][1] = "Missing";
 			break;
 		default:
-			overviewData[2][1] = "Unknown state";
+			nodeData[3][1] = "Unknown state";
 			break;
 		}
-		nodeData[3][1] = simpleDateFormat.format(node.getJoinTime());
+		nodeData[4][1] = simpleDateFormatDay.format(node.getJoinTime());
+		nodeData[5][1] = simpleDateFormatTime.format(node.getJoinTime());
 	}
 	
 	private static Map<String, ErraNode> generateNodes() {
@@ -312,15 +371,15 @@ public class PrinceGUI extends JFrame implements ActionListener {
 		p2.setInMyCounty(false);
 		p1.setBootstrapOwner(null);
 		
-		ErraNode s1 = new ErraNode("40.40.40.40", NodeType.NODE_TYPE_SUBJECT, NodeState.NODE_STATE_ALIVE);
+		ErraNode s1 = new ErraNode("40.40.40.40", NodeType.NODE_TYPE_SUBJECT, NodeState.NODE_STATE_MISSING);
 		s1.setInMyCounty(true);
 		s1.setBootstrapOwner(p1);
 		
-		ErraNode s2 = new ErraNode("50.50.50.50", NodeType.NODE_TYPE_SUBJECT, NodeState.NODE_STATE_ALIVE);
+		ErraNode s2 = new ErraNode("50.50.50.50", NodeType.NODE_TYPE_SUBJECT, NodeState.NODE_STATE_DEAD);
 		s2.setInMyCounty(true);
 		s2.setBootstrapOwner(p1);
 		
-		ErraNode s3 = new ErraNode("60.60.60.60", NodeType.NODE_TYPE_SUBJECT, NodeState.NODE_STATE_ALIVE);
+		ErraNode s3 = new ErraNode("60.60.60.60", NodeType.NODE_TYPE_SUBJECT, NodeState.UNKNOWN);
 		s3.setInMyCounty(false);
 		s3.setBootstrapOwner(p2);
 		
@@ -359,48 +418,27 @@ public class PrinceGUI extends JFrame implements ActionListener {
 	}
 	
 	private class PrinceTable extends JTable {
-		Map<Integer, Color> rowColor = new HashMap<Integer, Color>();
+		
+		private Map<Integer, Color> rowColor;
 
 	     public PrinceTable(TableModel model) {
 	          super(model);
+	          rowColor = new HashMap<Integer, Color>();
 	     }
 
 	     @Override
-	     public Component prepareRenderer(TableCellRenderer renderer, int row, int column)
-	     {
-	          Component c = super.prepareRenderer(renderer, row, column);
-
-	          if (!isRowSelected(row))
-	          {
-	               Color color = rowColor.get( row );
-	               c.setBackground(color == null ? getBackground() : color);
+	     public Component prepareRenderer(TableCellRenderer renderer, int row, int column) {
+	          Component component = super.prepareRenderer(renderer, row, column);
+	          if (!isRowSelected(row)) {
+	               Color color = rowColor.get(row);
+	               component.setBackground(color == null ? getBackground() : color);
 	          }
-
-	          return c;
+	          return component;
 	     }
 
-	     public void setRowColor(int row, Color color)
-	     {
+	     public void setRowColor(int row, Color color) {
 	          rowColor.put(row, color);
 	     }
-
-//	     public static void main(String[] args)
-//	     {
-//	          DefaultTableModel model = new DefaultTableModel(10, 4);
-//	          RowTable table = new RowTable( model );
-//	          table.setPreferredScrollableViewportSize(table.getPreferredSize());
-//
-//	          table.setRowColor(1, Color.YELLOW);
-//	          table.setRowColor(2, Color.RED);
-//	          table.setRowColor(3, Color.ORANGE);
-//
-//	          JFrame frame = new JFrame();
-//	          frame.setDefaultCloseOperation( JFrame.EXIT_ON_CLOSE );
-//	          frame.add( new JScrollPane( table ) );
-//	          frame.pack();
-//	          frame.setLocationRelativeTo( null );
-//	          frame.setVisible(true);
-//	     }
 	}
 	
 	private class PrinceMouseAdapter extends MouseAdapter {
@@ -410,12 +448,16 @@ public class PrinceGUI extends JFrame implements ActionListener {
 			super.mouseClicked(e);
 			JTable currentTable = (JTable) e.getSource();
 			int selRow = currentTable.getSelectedRow();
-//			int selCol = currentTable.getSelectedColumn();
 			currentTable.clearSelection();
-			genericInfoPanel.removeAll();
-			String ipSelected = overviewData[selRow][0];
+			String ipSelected = null;
+			for(Map.Entry<String, Integer> entry : ipToRowTable.entrySet()) {
+				if (entry.getValue() == selRow) {
+					ipSelected = entry.getKey();
+					break;
+				}
+			}
 			focusedNode = nodes.get(ipSelected);
-			System.out.println(ipSelected);
+			genericInfoPanel.removeAll();
 			generateNodeInfoData(focusedNode.getIPAddress());
 			tbNodeInfo.setModel(new PrinceTableModel(nodeData, fieldName));	// TODO prova a mettere null anziche' fieldName
 			nodeInfoPanel.validate();
