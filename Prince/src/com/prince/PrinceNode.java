@@ -331,6 +331,10 @@ public class PrinceNode extends NewErraClient {
 						String[] immigrants = message.split(ErraNodeVariables.DELIMITER_MSG_PARAMS);
 						String leavingPrince = socket.getInetAddress().getHostAddress();
 						removeErraNode(leavingPrince);
+						if (protectorate.getIPAddress().equalsIgnoreCase(leavingPrince)) {
+							protectorate = nodes.get(subProtectorate);
+							subProtectorate = null;
+						}
 						princeInfoLog("Adding immigrant nodes:");
 						for (int i = 0; i < immigrants.length; i++) {
 							ErraNode myNewSubject = nodes.get(immigrants[i]);
