@@ -37,9 +37,9 @@ public class PrinceNode extends NewErraClient {
 	private boolean ACTIVE_ALIVE_RQST = true;
 	private boolean ACTIVE_INFO_LOG = true;
 	private boolean ACTIVE_ERROR_LOG = true;
-	
+
 	private static final String PASSWORD = "erra";
-	
+
 	//	States
 	public enum PrinceState {
 		STATE_RUNNING,
@@ -75,7 +75,7 @@ public class PrinceNode extends NewErraClient {
 	private Map<String, ErraNode.NodeState> rollCallRegister;	// "registro per fare l'appello"
 	private Map<String, ErraNode> princes;	// other active bootstraps
 	private Map<String, ErraNode> refugees;	// subjects I have to look after in case their Prince falls
-//	private NodeViewer nodeViewer;
+	//	private NodeViewer nodeViewer;
 	private PrinceGUI princeGui;
 
 	private Timer timer;
@@ -89,14 +89,14 @@ public class PrinceNode extends NewErraClient {
 		rollCallRegister = new HashMap<String, NodeState>();
 		princes = new HashMap<String, ErraNode>();
 		refugees = new HashMap<String, ErraNode>();
-		
+
 		nodes.put(myIPAddress, me);
 		princes.put(myIPAddress, me);
 		timer = new Timer();
 
-//		nodeViewer = new NodeViewer();
+		//		nodeViewer = new NodeViewer();
 		princeGui = new PrinceGUI(nodes, me);
-		
+
 		findOtherPrinces();
 
 		currentState = PrinceState.STATE_RUNNING;
@@ -127,12 +127,16 @@ public class PrinceNode extends NewErraClient {
 			manageRecovery R=new manageRecovery();
 			R.start();
 		}
-		////////////////////////	
-
 		PrinceNode princeNode = new PrinceNode();
+		try {
+			NewErraClient.addIpOnline(getMyIP());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		////////////////////////
 
 		while (currentState != PrinceState.STATE_RUNNING) {
-		
+
 		}
 		princeNode.runPrinceNode();
 	}	// main()
@@ -143,7 +147,7 @@ public class PrinceNode extends NewErraClient {
 		if (!ACTIVE_ALIVE_RQST) {
 			System.err.println("Attention! Alive requests are not active!");
 		}
-//		nodeViewer.showNetwork(nodes, me);
+		//		nodeViewer.showNetwork(nodes, me);
 		princeGui.updateTable(nodes);
 		joinedNodeListenerThread.start();
 		departedNodeListenerThread.start();
@@ -154,7 +158,7 @@ public class PrinceNode extends NewErraClient {
 		if (ACTIVE_ALIVE_RQST) {
 			timer.schedule(task, ErraNodeVariables.DELAY_ASK_FOR_ALIVE, ErraNodeVariables.periodAskForAlive);
 		}
-		
+
 		System.out.print("> ");
 		Scanner fromKeyboard = new Scanner(System.in);
 		while(true) {	
@@ -175,7 +179,7 @@ public class PrinceNode extends NewErraClient {
 				if (psswd.equals(PASSWORD)) {
 					System.out.println("Password accepted!");
 					while (!abdicate()) {
-						
+
 					}
 					break;
 				} else {
@@ -299,7 +303,7 @@ public class PrinceNode extends NewErraClient {
 			}
 		}
 	}	// AliveNodeListenerThread
-	
+
 	private class ImmigrantListenerThread extends Thread {
 
 		public ImmigrantListenerThread() {
@@ -326,7 +330,7 @@ public class PrinceNode extends NewErraClient {
 						String message = msg.substring(2);	// remove "I@"
 						String[] immigrants = message.split(ErraNodeVariables.DELIMITER_MSG_PARAMS);
 						String leavingPrince = socket.getInetAddress().getHostAddress();
-						spreadNetworkChanges(new ErraNode[]{removeErraNode(leavingPrince)}, false);
+						removeErraNode(leavingPrince);
 						princeInfoLog("Adding immigrant nodes:");
 						for (int i = 0; i < immigrants.length; i++) {
 							ErraNode myNewSubject = nodes.get(immigrants[i]);
@@ -344,7 +348,7 @@ public class PrinceNode extends NewErraClient {
 			}
 		}
 	}	// AliveNodeListenerThread
-	
+
 	private class ProtectorListenerThread extends Thread {
 
 		public ProtectorListenerThread() {
@@ -373,7 +377,7 @@ public class PrinceNode extends NewErraClient {
 						if (!nodes.containsKey(protectorAddress)) {
 							princeErrorLog("Attention! A node outside the network asked to see my subjects!");
 						} else {
-//							<myProtectorateIP>@<mySubj_1>#<mySubj_2>#<mySubjc_3>#...#
+							//							<myProtectorateIP>@<mySubj_1>#<mySubj_2>#<mySubjc_3>#...#
 							String subjectList = protectorate.getIPAddress() + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR;
 							for (Map.Entry<String, NodeState> entry : rollCallRegister.entrySet()) {
 								if (!princes.containsKey(entry.getKey())) {
@@ -458,6 +462,14 @@ public class PrinceNode extends NewErraClient {
 								updateRegister(refugee.getIPAddress(), NodeState.NODE_STATE_ALIVE);
 								System.out.println("Ora tra i miei nodi ho: " + refugee.getIPAddress());
 							}
+							
+							//Remove the dead prince from the online list
+							try {
+								NewErraClient.removeIpOnline(protectorate.getIPAddress());
+								System.out.println("The node "+protectorate.getIPAddress()+" has been removed from the online list.");
+							} catch (IOException e){
+								e.printStackTrace();
+							}		
 						}
 						deadNodes[indexMissingNodes] = removeErraNode(missingNodeIPAddress);
 						princeInfoLog("Node " + missingNodeIPAddress + " lost.");
@@ -523,7 +535,7 @@ public class PrinceNode extends NewErraClient {
 					node.setBootstrapOwner(me);
 					spreadNetworkChanges(new ErraNode[]{node}, true);
 					addErraNode(node);
-//					princeGui.updateTable(nodes);
+					//					princeGui.updateTable(nodes);
 				}
 				try {
 					PrintStream toNode = new PrintStream(socket.getOutputStream());
@@ -615,10 +627,10 @@ public class PrinceNode extends NewErraClient {
 	 * ****************************************************************************
 	 * END THREADS
 	 */
-	
+
 	private boolean abdicate() {
 		while (currentState != PrinceState.STATE_RUNNING) {
-			
+
 		}
 		System.out.println("Shutting down this Prince Node...");
 		int princesNumber = princes.size() - 1;
@@ -665,6 +677,11 @@ public class PrinceNode extends NewErraClient {
 			}
 		}
 		spreadNetworkChanges(new ErraNode[]{me}, false);
+		try {
+			NewErraClient.removeIpOnline(getMyIP());
+		} catch (IOException e){
+			e.printStackTrace();
+		}	
 		System.out.println("...Prince node shut down. Goodbye!");
 		return true;
 	}
@@ -720,7 +737,7 @@ public class PrinceNode extends NewErraClient {
 		}
 		findMyProtectorate();	
 	}
-	
+
 	private void findMyProtectorate() {	
 		Set<String> princesSet = princes.keySet();
 		String[] princesArray = new String[princes.size()];
@@ -769,14 +786,14 @@ public class PrinceNode extends NewErraClient {
 			e.printStackTrace();
 		}
 	}
-	
+
 	private void princeInfoLog(String messageToShow) {
 		if (ACTIVE_INFO_LOG) {
 			System.out.println(messageToShow);
 			princeGui.updateMessage(messageToShow);
 		}
 	}
-	
+
 	private void princeErrorLog(String messageToShow) {
 		if (ACTIVE_ERROR_LOG) {
 			System.err.println(messageToShow);
@@ -789,7 +806,7 @@ public class PrinceNode extends NewErraClient {
 	private synchronized void addErraNode(ErraNode erraNode) {
 		nodes.put(erraNode.getIPAddress(), erraNode);
 		rollCallRegister.put(erraNode.getIPAddress(), NodeState.NODE_STATE_ALIVE);	// update rollCallRegister too
-//		showNetworkTable();
+		//		showNetworkTable();
 		princeGui.updateTable(nodes);
 	}
 
@@ -797,7 +814,6 @@ public class PrinceNode extends NewErraClient {
 		rollCallRegister.remove(erraNodeIPAddress);
 		if (!erraNodeIPAddress.equalsIgnoreCase(me.getIPAddress())) {	// against acking: I cannot remove myself
 			ErraNode removedNode = nodes.remove(erraNodeIPAddress);
-//			showNetworkTable();
 			return removedNode;
 		} else {
 			return null;
@@ -807,7 +823,7 @@ public class PrinceNode extends NewErraClient {
 	private synchronized void updateRegister(String erraIPAddress, NodeState nodeState) {
 		rollCallRegister.put(erraIPAddress, nodeState);
 		nodes.get(erraIPAddress).setNodeState(nodeState);
-//		princeGui.updateTable(nodes);
+		//		princeGui.updateTable(nodes);
 	}
 
 	private synchronized void spreadNetworkChanges(ErraNode[] changedNodes, boolean added) {
