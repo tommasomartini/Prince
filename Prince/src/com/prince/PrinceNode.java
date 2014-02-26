@@ -41,7 +41,7 @@ public class PrinceNode extends NewErraClient {
 	private static final String PASSWORD = "erra";
 	
 	//	States
-	private enum PrinceState {
+	public enum PrinceState {
 		STATE_RUNNING,
 		STATE_ROLL_CALLING,
 		STATE_SPREADING_CHANGES,
@@ -700,11 +700,11 @@ public class PrinceNode extends NewErraClient {
 				e.printStackTrace();
 			} 
 		}
-		findMyProtectorate();
+//		findMyProtectorate();	// FIXME activate me!!!
 	}
 	
-	private void findMyProtectorate()
-	{
+
+	private void findMyProtectorate() {	// TODO aggiungere me stesso alla lista dei principi
 		Set<String> princesSet = princes.keySet();
 		String[] princesArray = new String[princes.size()];
 		Iterator<String> iterator = princesSet.iterator();

@@ -63,7 +63,7 @@ public class ErraNodeVariables {
 	public static int CONNECTION_TIMEOUT=5000;
 	public static int MAX_PAYLOAD=2048000;
 	public static int MINIMUM_PAYLOAD=100;
-	public static int PENDING_REFRESH_RATE=5000;
+	public static int PENDING_REFRESH_RATE=15000;
 	
 	public static boolean recovery=true;
 	public static boolean verbose=true;
