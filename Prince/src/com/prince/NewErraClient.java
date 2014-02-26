@@ -655,6 +655,8 @@ public class NewErraClient
 				{
 					BOOTSTRAP_ADDRESS=P;
 					System.out.println("The bootstrap node has changed!");
+					if(graphicInterface!=null)
+						graphicInterface.update();
 				}
 
 				String message=new String(receivedPacket.getData(),0,receivedPacket.getLength());
