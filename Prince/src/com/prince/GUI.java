@@ -117,7 +117,7 @@ public class GUI extends Frame implements WindowListener,ActionListener
         	b.addActionListener(this);
         	b.setBackground(Color.red);
         	bottoni.add(b);
-        	JLabel L2=new JLabel("You are host "+NewErraClient.getMyIP()+", and your BOOTSTRAP node is "+NewErraClient.BOOTSTRAP_ADDRESS,JLabel.CENTER);
+        	JLabel L2=new JLabel("You are host "+NewErraClient.getMyIP()+",\n Your BOOTSTRAP node is "+NewErraClient.BOOTSTRAP_ADDRESS,JLabel.CENTER);
         	L2.setBackground(Color.pink);
            	bottoni.add(L2);
            	

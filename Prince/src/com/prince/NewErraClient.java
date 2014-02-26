@@ -1,10 +1,5 @@
 package com.prince;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Container;
-import java.awt.Dimension;
-import java.awt.event.ActionListener;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
@@ -20,7 +15,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.ConnectException;
 import java.net.DatagramPacket;
@@ -29,20 +23,16 @@ import java.net.HttpURLConnection;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.MalformedURLException;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.URL;
-import java.net.URLConnection;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
-import java.security.acl.LastOwnerException;
-import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -59,16 +49,12 @@ import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.DefaultComboBoxModel;
-import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JLayeredPane;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
 
 public class NewErraClient 
 {
@@ -76,11 +62,8 @@ public class NewErraClient
 	public static String BOOTSTRAP_ADDRESS="";
 	public static fileManager FM;
 	public static boolean writing=false;
-
 	public static Map<String, ErraNode> nodes;
-
 	public static List<String> notifications;
-
 	public static GUI graphicInterface;
 
 	public static class file
@@ -400,8 +383,6 @@ public class NewErraClient
 		}
 
 	}
-
-	
 
 	public static boolean initializeErra(String address)
 	{
@@ -1011,7 +992,8 @@ public class NewErraClient
 			ErraNode currentNode = entry.getValue();
 			System.out.println(currentNode.getIPAddress());
 		}
-		graphicInterface.update();
+		if(graphicInterface!=null)
+			graphicInterface.update();
 	}
 
 	public static LinkedList<byte[]> wrap(String filename,String erraDest)
@@ -1157,7 +1139,7 @@ public class NewErraClient
 
 	public static void send(String path, String IPDest) throws UnsupportedEncodingException, UnknownHostException 
 	{
-		if (nodes==null || nodes.size()==0)
+		if (nodes==null || nodes.size()==0 || nodes.size()==1)
 		{
 			System.out.println("You are alone in the network, file sending is not allowed.");
 			return;

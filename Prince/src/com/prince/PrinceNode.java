@@ -92,7 +92,7 @@ public class PrinceNode extends NewErraClient {
 
 		timer = new Timer();
 
-		findOtherPrinces();
+		//findOtherPrinces();
 
 		nodeViewer = new NodeViewer();
 
@@ -105,7 +105,7 @@ public class PrinceNode extends NewErraClient {
 		protectorListenerThread = new ProtectorListenerThread();
 	}	// PrinceNode()
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws UnsupportedEncodingException, UnknownHostException {
 
 		/////////////////////////
 		//	ErraClient functions
@@ -128,11 +128,11 @@ public class PrinceNode extends NewErraClient {
 
 		PrinceNode princeNode = new PrinceNode();
 
-		while (currentState != PrinceState.STATE_RUNNING) {
-		
-		}
+		while (currentState != PrinceState.STATE_RUNNING)
+		{}
 		princeNode.runPrinceNode();
-	}	// main()
+	}
+	
 
 	private void runPrinceNode() {
 		System.out.println("\nPrince " + me.getIPAddress() + " activated.\n");
@@ -703,7 +703,8 @@ public class PrinceNode extends NewErraClient {
 		findMyProtectorate();
 	}
 	
-	private void findMyProtectorate() {
+	private void findMyProtectorate()
+	{
 		Set<String> princesSet = princes.keySet();
 		String[] princesArray = new String[princes.size()];
 		Iterator<String> iterator = princesSet.iterator();
@@ -718,7 +719,8 @@ public class PrinceNode extends NewErraClient {
 				break;
 			}
 		}
-		if (index == princesArray.length - 1) {
+		if (index == princesArray.length - 1) 
+		{
 			index = 0;
 		}
 		protectorate = princes.get(princesArray[index]);
