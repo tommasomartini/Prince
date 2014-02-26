@@ -24,6 +24,7 @@ public class ErraNode {
 	private NodeState nodeState;
 	private boolean isInMyCounty;
 	private ErraNode bootstrapOwner;
+	private ErraNode protectorate;
 
 	public ErraNode(String ip, NodeType nodeType, NodeState nodeState) {
 		ipAddress = ip;
@@ -32,6 +33,7 @@ public class ErraNode {
 		this.nodeState = nodeState;
 		isInMyCounty = false;
 		bootstrapOwner = null;
+		protectorate = null;
 	}
 	
 	public ErraNode(String ip) {
@@ -41,6 +43,7 @@ public class ErraNode {
 		nodeState = NodeState.UNKNOWN;
 		isInMyCounty = false;
 		bootstrapOwner = null;
+		protectorate = null;
 	}
 
 	public String getIPAddress() {
@@ -81,5 +84,13 @@ public class ErraNode {
 
 	public void setBootstrapOwner(ErraNode bootstrapOwner) {
 		this.bootstrapOwner = bootstrapOwner;
+	}
+
+	public ErraNode getProtectorate() {
+		return protectorate;
+	}
+
+	public void setProtectorate(ErraNode protectorate) {
+		this.protectorate = protectorate;
 	}
 }

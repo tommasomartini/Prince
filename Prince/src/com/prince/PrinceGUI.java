@@ -47,7 +47,7 @@ public class PrinceGUI extends JFrame implements ActionListener {
 	private static final int OVERVIEW_TABLE_WIDTH = 500;
 	private static final int OVERVIEW_TABLE_HEIGTH = 100;
 	private static final int NODE_INFO_TABLE_WIDTH = 450;
-	private static final int NODE_INFO_TABLE_HEIGTH = 96;
+	private static final int NODE_INFO_TABLE_HEIGTH = 112;
 	
 	private String[] columnNamesOverview = {
 			"IP address",
@@ -61,7 +61,8 @@ public class PrinceGUI extends JFrame implements ActionListener {
 			"Prince owner",
 			"State",
 			"Day",
-			"Time"
+			"Time",
+			"Protectorate"
 	};
 	
 	private String[] fieldName = {
@@ -109,10 +110,10 @@ public class PrinceGUI extends JFrame implements ActionListener {
 //		PrinceGUI princeGUI = new PrinceGUI(generateNodes(), IP);
 //	}
 
-	public PrinceGUI(Map<String, ErraNode> newNodes, String myIP) {
-		super("Erra Prince: " + myIP);
+	public PrinceGUI(Map<String, ErraNode> newNodes, ErraNode princeNode) {
+		super("Erra Prince: " + princeNode.getIPAddress());
 		nodes = newNodes;
-		myIPAddress = myIP;
+		myIPAddress = princeNode.getIPAddress();
 		simpleDateFormatDay = new SimpleDateFormat("yyyy-MM-dd");
 		simpleDateFormatTime = new SimpleDateFormat("HH:mm:ss");
 		focusedNode = null;
@@ -120,7 +121,7 @@ public class PrinceGUI extends JFrame implements ActionListener {
 		// Frame options
 		setResizable(false);
 		setLocation(new Point(POINT_X, POINT_Y));
-		setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);	// FIXME mettere do nothing on close
+		setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);	// FIXME mettere do nothing on close
 		
 		nodeData = new String[columnNamesInfoNode.length][2];
 		nodeData[0][0] = columnNamesInfoNode[0];
@@ -129,12 +130,14 @@ public class PrinceGUI extends JFrame implements ActionListener {
 		nodeData[3][0] = columnNamesInfoNode[3];
 		nodeData[4][0] = columnNamesInfoNode[4];
 		nodeData[5][0] = columnNamesInfoNode[5];
+		nodeData[6][0] = columnNamesInfoNode[6];
 		nodeData[0][1] = "-";
 		nodeData[1][1] = "-";
 		nodeData[2][1] = "-";
 		nodeData[3][1] = "-";
 		nodeData[4][1] = "-";
 		nodeData[5][1] = "-";
+		nodeData[6][1] = "-";
 		
 		/********************************************************************************
 		 * Graphics
@@ -200,6 +203,10 @@ public class PrinceGUI extends JFrame implements ActionListener {
 		nodes = newNodes;
 		generateOverviewData();
 		table.setModel(new PrinceTableModel(overviewData, columnNamesOverview));
+		((DefaultTableModel)table.getModel()).fireTableDataChanged();
+//		table = new PrinceTable(new PrinceTableModel(overviewData, columnNamesOverview));
+//		scrollPaneOverviewTable.removeAll();
+//		scrollPaneOverviewTable.add(table);
 		for (Map.Entry<String, ErraNode> entry : nodes.entrySet()) {
 			ErraNode erraNode = entry.getValue();
 			switch (erraNode.getNodeState()) {
@@ -358,6 +365,7 @@ public class PrinceGUI extends JFrame implements ActionListener {
 		}
 		nodeData[4][1] = simpleDateFormatDay.format(node.getJoinTime());
 		nodeData[5][1] = simpleDateFormatTime.format(node.getJoinTime());
+		nodeData[6][1] = (relatedPrince.getProtectorate() == null ? relatedPrince.getProtectorate().getIPAddress() : "No protectorate");
 	}
 	
 	private static Map<String, ErraNode> generateNodes() {
