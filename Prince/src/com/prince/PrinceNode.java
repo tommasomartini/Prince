@@ -94,8 +94,8 @@ public class PrinceNode extends NewErraClient {
 		princes.put(myIPAddress, me);
 		timer = new Timer();
 
-		//		nodeViewer = new NodeViewer();
 		princeGui = new PrinceGUI(nodes, me);
+		princeGui.setPrinceNode(this);
 
 		findOtherPrinces();
 
@@ -462,7 +462,7 @@ public class PrinceNode extends NewErraClient {
 								updateRegister(refugee.getIPAddress(), NodeState.NODE_STATE_ALIVE);
 								System.out.println("Ora tra i miei nodi ho: " + refugee.getIPAddress());
 							}
-							
+
 							//Remove the dead prince from the online list
 							try {
 								NewErraClient.removeIpOnline(protectorate.getIPAddress());
@@ -628,51 +628,53 @@ public class PrinceNode extends NewErraClient {
 	 * END THREADS
 	 */
 
-	private boolean abdicate() {
+	public boolean abdicate() {
 		while (currentState != PrinceState.STATE_RUNNING) {
 
 		}
 		System.out.println("Shutting down this Prince Node...");
 		int princesNumber = princes.size() - 1;
-		int subjectsNumber = rollCallRegister.size() - princesNumber;
-		int subjPerPrince = subjectsNumber / princesNumber;
-		int remainingSubs = subjectsNumber - subjPerPrince * princesNumber;
-		String[] mySubjectIPs = new String[subjectsNumber];
-		int subjectIndex = 0;
-		for (Map.Entry<String, NodeState> entry : rollCallRegister.entrySet()) {
-			if (!princes.containsKey(entry.getKey())) {
-				mySubjectIPs[subjectIndex] = entry.getKey();
-				subjectIndex++;
-			}
-		}
-		String msg = ErraNodeVariables.MSG_PRINCE_SEND_IMMIGRANT + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR;
-		int princeIndex = 0;
-		subjectIndex = 0;
-		for (Map.Entry<String, ErraNode> entry : princes.entrySet()) {
-			ErraNode currentPrince = entry.getValue();
-			if (!currentPrince.getIPAddress().equalsIgnoreCase(me.getIPAddress())) {
-				int howManySubs = subjPerPrince;
-				if (princeIndex < remainingSubs) {
-					howManySubs++;
+		if (princesNumber != 0) {
+			int subjectsNumber = rollCallRegister.size() - princesNumber;
+			int subjPerPrince = subjectsNumber / princesNumber;
+			int remainingSubs = subjectsNumber - subjPerPrince * princesNumber;
+			String[] mySubjectIPs = new String[subjectsNumber];
+			int subjectIndex = 0;
+			for (Map.Entry<String, NodeState> entry : rollCallRegister.entrySet()) {
+				if (!princes.containsKey(entry.getKey())) {
+					mySubjectIPs[subjectIndex] = entry.getKey();
+					subjectIndex++;
 				}
-				princeIndex++;
-				if (howManySubs > 0) {
-					for (int i = 0; i < howManySubs; i++) {
-						msg += mySubjectIPs[subjectIndex++] + ErraNodeVariables.DELIMITER_MSG_PARAMS;
+			}
+			String msg = ErraNodeVariables.MSG_PRINCE_SEND_IMMIGRANT + ErraNodeVariables.DELIMITER_AFTER_MSG_CHAR;
+			int princeIndex = 0;
+			subjectIndex = 0;
+			for (Map.Entry<String, ErraNode> entry : princes.entrySet()) {
+				ErraNode currentPrince = entry.getValue();
+				if (!currentPrince.getIPAddress().equalsIgnoreCase(me.getIPAddress())) {
+					int howManySubs = subjPerPrince;
+					if (princeIndex < remainingSubs) {
+						howManySubs++;
 					}
-					msg = msg.substring(0, msg.length() - 1);	// remove last "#"
-					try {
-						Socket socket = new Socket(currentPrince.getIPAddress(), ErraNodeVariables.PORT_PRINCE_IMMIGRANT);
-						PrintStream toOtherPrince = new PrintStream(socket.getOutputStream());
-						toOtherPrince.println(msg);
-						socket.close();
-					} catch (UnknownHostException e) {
-						e.printStackTrace();
-					} catch (IOException e) {
-						e.printStackTrace();
+					princeIndex++;
+					if (howManySubs > 0) {
+						for (int i = 0; i < howManySubs; i++) {
+							msg += mySubjectIPs[subjectIndex++] + ErraNodeVariables.DELIMITER_MSG_PARAMS;
+						}
+						msg = msg.substring(0, msg.length() - 1);	// remove last "#"
+						try {
+							Socket socket = new Socket(currentPrince.getIPAddress(), ErraNodeVariables.PORT_PRINCE_IMMIGRANT);
+							PrintStream toOtherPrince = new PrintStream(socket.getOutputStream());
+							toOtherPrince.println(msg);
+							socket.close();
+						} catch (UnknownHostException e) {
+							e.printStackTrace();
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+					} else {
+						break;
 					}
-				} else {
-					break;
 				}
 			}
 		}

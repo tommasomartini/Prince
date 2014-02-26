@@ -11,6 +11,8 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
+import java.io.UnsupportedEncodingException;
+import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,6 +38,10 @@ public class PrinceGUI extends JFrame implements ActionListener {
 	 * Randomly generated
 	 */
 	private static final long serialVersionUID = 1693846911440567274L;
+	
+	private static final String ACTION_COMMAND_SEND = "cmd1";
+	private static final String ACTION_COMMAND_ROLL_CALL = "cmd2";
+	private static final String ACTION_COMMAND_SHUTDOWN = "cmd3";
 	
 	private static final Color myColor = new Color(238, 223, 249);
 	private static final Color missingColor = new Color(186, 179, 253);
@@ -79,6 +85,7 @@ public class PrinceGUI extends JFrame implements ActionListener {
 	private String myIPAddress;
 	private ErraNode relatedPrince;
 	private ErraNode focusedNode;
+	private PrinceNode princeNode;
 	private PrinceState currentState;
 
 	/*
@@ -121,7 +128,7 @@ public class PrinceGUI extends JFrame implements ActionListener {
 		// Frame options
 		setResizable(false);
 		setLocation(new Point(POINT_X, POINT_Y));
-		setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);	// FIXME mettere do nothing on close
+		setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);	// FIXME mettere do nothing on close
 		
 		nodeData = new String[columnNamesInfoNode.length][2];
 		nodeData[0][0] = columnNamesInfoNode[0];
@@ -159,13 +166,13 @@ public class PrinceGUI extends JFrame implements ActionListener {
 		// East panel
 		pnlEast = new JPanel(new GridLayout(3, 1));
 		bt1 = new JButton("Send");
-		bt1.setActionCommand("cmd1");
+		bt1.setActionCommand(ACTION_COMMAND_SEND);
 		bt1.addActionListener(this);
-		bt2 = new JButton("Roll Call");
-		bt2.setActionCommand("cmd2");
+		bt2 = new JButton("Roll call");
+		bt2.setActionCommand(ACTION_COMMAND_ROLL_CALL);
 		bt2.addActionListener(this);
 		bt3 = new JButton("Shutdown");
-		bt3.setActionCommand("cmd3");
+		bt3.setActionCommand(ACTION_COMMAND_SHUTDOWN);
 		bt3.addActionListener(this);
 		pnlEast.add(bt1);
 		pnlEast.add(bt2);
@@ -368,37 +375,45 @@ public class PrinceGUI extends JFrame implements ActionListener {
 		nodeData[6][1] = (relatedPrince.getProtectorate() == null ? relatedPrince.getProtectorate().getIPAddress() : "No protectorate");
 	}
 	
-	private static Map<String, ErraNode> generateNodes() {
-		Map<String, ErraNode> fooNodes = new HashMap<String, ErraNode>();
-		
-		ErraNode p1 = new ErraNode(IP, NodeType.NODE_TYPE_PRINCE, NodeState.NODE_STATE_ALIVE);
-		p1.setInMyCounty(true);
-		p1.setBootstrapOwner(null);
-		
-		ErraNode p2 = new ErraNode("20.20.20.20", NodeType.NODE_TYPE_PRINCE, NodeState.NODE_STATE_ALIVE);
-		p2.setInMyCounty(false);
-		p1.setBootstrapOwner(null);
-		
-		ErraNode s1 = new ErraNode("40.40.40.40", NodeType.NODE_TYPE_SUBJECT, NodeState.NODE_STATE_MISSING);
-		s1.setInMyCounty(true);
-		s1.setBootstrapOwner(p1);
-		
-		ErraNode s2 = new ErraNode("50.50.50.50", NodeType.NODE_TYPE_SUBJECT, NodeState.NODE_STATE_DEAD);
-		s2.setInMyCounty(true);
-		s2.setBootstrapOwner(p1);
-		
-		ErraNode s3 = new ErraNode("60.60.60.60", NodeType.NODE_TYPE_SUBJECT, NodeState.UNKNOWN);
-		s3.setInMyCounty(false);
-		s3.setBootstrapOwner(p2);
-		
-		fooNodes.put(p1.getIPAddress(), p1);
-		fooNodes.put(p2.getIPAddress(), p2);
-		fooNodes.put(s1.getIPAddress(), s1);
-		fooNodes.put(s2.getIPAddress(), s2);
-		fooNodes.put(s3.getIPAddress(), s3);
-		
-		return fooNodes;
+	public PrinceNode getPrinceNode() {
+		return princeNode;
 	}
+
+	public void setPrinceNode(PrinceNode princeNode) {
+		this.princeNode = princeNode;
+	}
+
+//	private static Map<String, ErraNode> generateNodes() {
+//		Map<String, ErraNode> fooNodes = new HashMap<String, ErraNode>();
+//		
+//		ErraNode p1 = new ErraNode(IP, NodeType.NODE_TYPE_PRINCE, NodeState.NODE_STATE_ALIVE);
+//		p1.setInMyCounty(true);
+//		p1.setBootstrapOwner(null);
+//		
+//		ErraNode p2 = new ErraNode("20.20.20.20", NodeType.NODE_TYPE_PRINCE, NodeState.NODE_STATE_ALIVE);
+//		p2.setInMyCounty(false);
+//		p1.setBootstrapOwner(null);
+//		
+//		ErraNode s1 = new ErraNode("40.40.40.40", NodeType.NODE_TYPE_SUBJECT, NodeState.NODE_STATE_MISSING);
+//		s1.setInMyCounty(true);
+//		s1.setBootstrapOwner(p1);
+//		
+//		ErraNode s2 = new ErraNode("50.50.50.50", NodeType.NODE_TYPE_SUBJECT, NodeState.NODE_STATE_DEAD);
+//		s2.setInMyCounty(true);
+//		s2.setBootstrapOwner(p1);
+//		
+//		ErraNode s3 = new ErraNode("60.60.60.60", NodeType.NODE_TYPE_SUBJECT, NodeState.UNKNOWN);
+//		s3.setInMyCounty(false);
+//		s3.setBootstrapOwner(p2);
+//		
+//		fooNodes.put(p1.getIPAddress(), p1);
+//		fooNodes.put(p2.getIPAddress(), p2);
+//		fooNodes.put(s1.getIPAddress(), s1);
+//		fooNodes.put(s2.getIPAddress(), s2);
+//		fooNodes.put(s3.getIPAddress(), s3);
+//		
+//		return fooNodes;
+//	}
 	
 	/*
 	 * Inherited methods
@@ -407,7 +422,22 @@ public class PrinceGUI extends JFrame implements ActionListener {
 	@Override
 	public void actionPerformed(ActionEvent e) {
 		String actionCommand = e.getActionCommand();
-		System.out.println(actionCommand);
+		if (actionCommand.equalsIgnoreCase(ACTION_COMMAND_SEND)) {
+			try {
+				NewErraClient.send("", "");
+			} catch (UnsupportedEncodingException e1) {
+				e1.printStackTrace();
+			} catch (UnknownHostException e1) {
+				e1.printStackTrace();
+			}
+		} else if (actionCommand.equalsIgnoreCase(ACTION_COMMAND_ROLL_CALL)) {
+			
+		} else if (actionCommand.equalsIgnoreCase(ACTION_COMMAND_SHUTDOWN)) {
+			while (!princeNode.abdicate()) {
+
+			}
+			System.exit(0);
+		}
 	}
 	
 	/*
@@ -513,55 +543,4 @@ public class PrinceGUI extends JFrame implements ActionListener {
 //			System.out.println("Mouse moved!");
 		}
 	}
-	
-	/*
-	 * 
-	 * static class MyTableModel extends DefaultTableModel {
-
-    List<Color> rowColours = Arrays.asList(
-        Color.RED,
-        Color.GREEN,
-        Color.CYAN
-    );
-
-    public void setRowColour(int row, Color c) {
-        rowColours.set(row, c);
-        fireTableRowsUpdated(row, row);
-    }
-
-    public Color getRowColour(int row) {
-        return rowColours.get(row);
-    }
-
-    @Override
-    public int getRowCount() {
-        return 3;
-    }
-
-    @Override
-    public int getColumnCount() {
-        return 3;
-    }
-
-    @Override
-    public Object getValueAt(int row, int column) {
-        return String.format("%d %d", row, column);
-    }
-}
-
-
-static class MyTableCellRenderer extends DefaultTableCellRenderer {
-
-    @Override
-    public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-        MyTableModel model = (MyTableModel) table.getModel();
-        Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-        c.setBackground(model.getRowColour(row));
-        return c;
-    }
-}
-
-
-model.setRowColour(1, Color.YELLOW);
-	 */
 }
